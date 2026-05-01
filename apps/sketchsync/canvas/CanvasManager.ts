@@ -5,7 +5,7 @@ import { PenShape } from "./shapes/PenShape";
 import { RectShape } from "./shapes/RectShape";
 import { Shape } from "./shapes/shape";
 import { TextShape } from "./shapes/TextShape";
-import { DEFAULT_STYLE, Point, ShapeData, ShapeStyles, Tool } from "./types";
+import { DEFAULT_STYLE, Point, ResizeHandle, ShapeData, ShapeStyles, Tool } from "./types";
 
 export class CanvasManager {
   private canvas: HTMLCanvasElement;
@@ -27,6 +27,12 @@ export class CanvasManager {
   private lastRawX: number;
   private lastRawY: number;
 
+  private isResizing: boolean;
+  private activeHandle: ResizeHandle | null;
+  private resizeStartX: number;
+  private resizeStartY: number;
+  private resizeStartData: ShapeData | null
+
   private moveStartX: number;
   private moveStartY: number;
   private originalShapeData: ShapeData | null;
@@ -42,6 +48,10 @@ export class CanvasManager {
     screenX: number,
     screenY: number,
   ) => void;
+  private onSelectionChange: (
+    shapeStyles: ShapeStyles | null,
+    shapeType: string | null,
+  ) => void;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -53,6 +63,10 @@ export class CanvasManager {
       canvasY: number,
       screenX: number,
       screenY: number,
+    ) => void,
+    onSelectionChange: (
+      shapeStyles: ShapeStyles | null,
+      shapeType: string | null,
     ) => void,
   ) {
     this.canvas = canvas;
@@ -73,10 +87,16 @@ export class CanvasManager {
     this.moveStartY = 0;
     this.originalShapeData = null;
     this.erasedIds = new Set();
+    this.isResizing = false;
+    this.activeHandle = null
+    this.resizeStartX = 0;
+    this.resizeStartY = 0;
+    this.resizeStartData = null
     this.onShapeChange = onShapeChange;
     this.onErase = onErase;
     this.onCursorMove = onCursorMove;
     this.onTextRequest = onTextRequest;
+    this.onSelectionChange = onSelectionChange;
   }
 
   toCanvasCoords(screenX: number, screenY: number) {
@@ -96,6 +116,7 @@ export class CanvasManager {
 
   setTool(tool: Tool) {
     this.activeTool = tool;
+    this.onSelectionChange(null, null);
     this.selectedShape = null;
     this.render();
   }
@@ -106,6 +127,55 @@ export class CanvasManager {
 
   setStyle(style: Partial<ShapeStyles>): void {
     this.currentStyle = { ...this.currentStyle, ...style };
+  }
+
+  getSelectedShapeStyles(): ShapeStyles | null {
+    if (!this.selectedShape) return null;
+    return { ...this.selectedShape.style };
+  }
+
+  getSelectedShape(): Shape | null {
+    if (!this.selectedShape) return null;
+    return this.selectedShape;
+  }
+
+  updateSelectedStyle(style: Partial<ShapeStyles>): void {
+    if (!this.selectedShape) return;
+    this.selectedShape.style = { ...this.selectedShape.style, ...style };
+    if (
+      this.selectedShape instanceof TextShape &&
+      style.fontSize !== undefined
+    ) {
+      this.selectedShape.fontSize = style.fontSize;
+    }
+    this.shapes.set(this.selectedShape.id, this.selectedShape);
+    this.render();
+    this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+  }
+
+  getActiveHandle(x: number, y: number) : ResizeHandle | null{
+    if(!this.selectedShape) return null
+
+    const box = this.selectedShape.getBoundingBox()
+    const tolerance = 6 / this.zoom
+
+    const handles: {name: ResizeHandle, x: number, y: number}[] = [
+      {name: "nw", x: box.x, y: box.y},
+      {name: "n", x: box.x + box.width / 2, y: box.y},
+      {name: "ne", x: box.x + box.width, y: box.y},
+      {name: "w", x: box.x , y: box.y + box.height/2},
+      {name: "sw", x: box.x, y: box.y + box.height},
+      {name: "s", x: box.x + box.width/2, y: box.y + box.height},
+      {name: "se", x: box.x + box.width, y: box.y + box.height},
+      {name: "e", x: box.x + box.width, y: box.y + box.height/2}
+    ]
+
+    for(let handle of handles){
+      const dx = x - handle.x
+      const dy = y - handle.y
+      if (Math.sqrt(dx*dx + dy*dy) < tolerance) return handle.name
+    }
+    return null
   }
 
   render(): void {
@@ -120,7 +190,7 @@ export class CanvasManager {
     this.shapes.forEach((shape) => shape.draw(this.ctx));
 
     if (this.selectedShape) {
-      this.selectedShape.drawSelection(this.ctx);
+      this.selectedShape.drawSelection(this.ctx, this.zoom);
     }
 
     if (this.currentShape) {
@@ -140,12 +210,31 @@ export class CanvasManager {
         this.isDrawing = true;
         break;
       case "pointer":
+        if (this.selectedShape) {
+          const handle = this.getActiveHandle(x, y);
+          if (handle) {
+            this.isResizing = true;
+            this.isDrawing = true;  
+            this.activeHandle = handle; 
+            this.resizeStartX = x;
+            this.resizeStartY = y;
+            this.resizeStartData = JSON.parse(
+              JSON.stringify(this.selectedShape.serialize())
+            );
+            return;
+          }
+        }
+
         const shape = this.getShape(x, y);
         this.selectedShape = shape;
+        const handle = this.getActiveHandle(x, y)
         if (shape) {
           this.moveStartX = x;
           this.moveStartY = y;
           this.originalShapeData = shape.serialize();
+          this.onSelectionChange({ ...shape.style }, shape.serialize().type);
+        } else {
+          this.onSelectionChange(null, null);
         }
         this.isDrawing = true;
         this.render();
@@ -190,10 +279,25 @@ export class CanvasManager {
         this.render();
         break;
       case "pointer":
+        if (this.isResizing && this.activeHandle && this.selectedShape && this.resizeStartData) {
+          const dx = x - this.resizeStartX;
+          const dy = y - this.resizeStartY;
+          const fresh = ShapeFactory.deserialize(
+            JSON.parse(JSON.stringify(this.resizeStartData))
+          );
+          fresh.resize(this.activeHandle, dx, dy);
+          this.shapes.set(fresh.id, fresh);
+          this.selectedShape = fresh;
+          this.render();
+          break;  
+        }
+
         if (!this.selectedShape || !this.originalShapeData) break;
-        const dx = x - this.moveStartX;
-        const dy = y - this.moveStartY;
-        const fresh = ShapeFactory.deserialize(this.originalShapeData!);
+        let dx = x - this.moveStartX;
+        let dy = y - this.moveStartY;
+        let fresh = ShapeFactory.deserialize(
+          JSON.parse(JSON.stringify(this.originalShapeData)),
+        );
         fresh.translate(dx, dy);
         this.shapes.set(fresh.id, fresh);
         this.selectedShape = fresh;
@@ -244,6 +348,13 @@ export class CanvasManager {
         this.isDrawing = false;
         break;
       case "pointer":
+        if(this.isResizing){
+          this.isResizing = false
+          this.activeHandle = null
+          this.resizeStartData = null
+          this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()),)
+          break
+        }
         this.isDrawing = false;
         this.originalShapeData = null;
         if (this.selectedShape) {

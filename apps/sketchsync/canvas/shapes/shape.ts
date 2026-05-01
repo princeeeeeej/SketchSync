@@ -29,7 +29,7 @@ export abstract class Shape {
 
     abstract getBoundingBox(): BoundingBox
 
-    abstract drawSelection(ctx: CanvasRenderingContext2D): void
+    abstract drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void
 
     abstract serialize(): ShapeData
 }

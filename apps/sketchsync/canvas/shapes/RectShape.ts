@@ -7,7 +7,7 @@ export class RectShape extends Shape{
     height: number
     width: number
 
-    constructor(id: string, style: ShapeStyles, x: number, y: number, height: number, width: number){
+    constructor(id: string, style: ShapeStyles, x: number, y: number, width: number, height: number){
         super(id, style)
         this.x = x
         this.y = y
@@ -89,21 +89,42 @@ export class RectShape extends Shape{
         };
     }
 
-    drawSelection(ctx: CanvasRenderingContext2D): void {
+    drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox()
-        const padding = 4
+        const padding = 4 / zoom
+        const size = 8 / zoom
 
         ctx.save()
         ctx.strokeStyle = "#6965db";
-        ctx.lineWidth= 1
+        ctx.lineWidth = 1 / zoom
         ctx.setLineDash([])
         ctx.strokeRect(
-            box.x - padding,
-            box.y - padding,
-            box.width + padding * 2,
-            box.height + padding * 2
+            box.x ,
+            box.y,
+            box.width ,
+            box.height
         )
         ctx.setLineDash([]);
+
+        ctx.fillStyle = "#ffffff"
+        ctx.strokeStyle = "#6965db"
+        ctx.lineWidth = 1 / zoom
+
+        const handles = [
+            { x: box.x,                   y: box.y },                    
+            { x: box.x + box.width / 2,   y: box.y },                   
+            { x: box.x + box.width,       y: box.y },                    
+            { x: box.x + box.width,       y: box.y + box.height / 2 },  
+            { x: box.x + box.width,       y: box.y + box.height },       
+            { x: box.x + box.width / 2,   y: box.y + box.height },      
+            { x: box.x,                   y: box.y + box.height },       
+            { x: box.x,                   y: box.y + box.height / 2 },  
+        ]
+
+        handles.forEach(h => {
+            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
+            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+        })
         ctx.restore()
     }
 

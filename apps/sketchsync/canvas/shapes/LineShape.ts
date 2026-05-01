@@ -43,11 +43,11 @@ export class LineShape extends Shape{
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
-        if (handle === "nw") {
+        if (handle === "w") {
             this.x1 += dx;
             this.y1 += dy;
         } 
-        else if (handle === "se") {
+        else if (handle === "e") {
             this.x2 += dx;
             this.y2 += dy;
         }
@@ -62,20 +62,35 @@ export class LineShape extends Shape{
         }
     }
 
-    drawSelection(ctx: CanvasRenderingContext2D): void {
+    drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox();
-        const padding = 4;
+         const size = 8 / zoom
 
         ctx.save();
         ctx.strokeStyle = "#6965db";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / zoom
         ctx.setLineDash([]);
         ctx.strokeRect(
-            box.x - padding,
-            box.y - padding,
-            box.width + padding * 2,
-            box.height + padding * 2
+            box.x,
+            box.y,
+            box.width,
+            box.height 
         );
+
+        ctx.fillStyle = "#ffffff"
+        ctx.strokeStyle = "#6965db"
+        ctx.lineWidth = 1 / zoom
+
+        const handles = [
+            { x: box.x ,                   y: box.y + box.height/2 },                                       
+            { x: box.x + box.width,       y: box.y + box.height/2 },        
+        ]
+
+        handles.forEach(h => {
+            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
+            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+        })
+        
         ctx.restore();
     }
 

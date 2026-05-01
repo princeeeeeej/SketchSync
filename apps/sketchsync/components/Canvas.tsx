@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CanvasManager } from "../canvas/CanvasManager";
-import { Tool } from "../canvas/types";
+import { ShapeStyles, Tool } from "../canvas/types";
 import { ToolBar } from "./ToolBaar";
 import { BACKEND_URL } from "@/app/config";
+import PropertiesPanel from "./PropertiesPanel";
 
 export default function Canvas({
   roomId,
@@ -23,6 +24,11 @@ export default function Canvas({
     screenY: number;
     value: string;
   } | null>(null);
+  const [selectedShapeStyles, setSelectedShapeStyles] =
+    useState<ShapeStyles | null>(null);
+  const [selectedShapeType, setSelectedShapeType] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,6 +53,10 @@ export default function Canvas({
       },
       (canvasX, canvasY, screenX, screenY) => {
         setTextInput({ canvasX, canvasY, screenX, screenY, value: "" });
+      },
+      (styles, shapeType) => {
+        setSelectedShapeStyles(styles);
+        setSelectedShapeType(shapeType);
       },
     );
 
@@ -84,6 +94,12 @@ export default function Canvas({
     managerRef.current?.setTool(tool);
   };
 
+  const handleStyleChange = (partialStyle: Partial<ShapeStyles>) => {
+    managerRef.current?.updateSelectedStyle(partialStyle);
+    const fresh = managerRef.current?.getSelectedShapeStyles();
+    setSelectedShapeStyles(fresh ? { ...fresh } : null);
+  };
+
   const commitText = () => {
     if (!textInput || !textInput.value.trim()) {
       setTextInput(null);
@@ -102,7 +118,7 @@ export default function Canvas({
       <canvas
         ref={canvasRef}
         style={
-          active === "eraser" ? { cursor: "url('/eraser.svg') 5 5, auto" } : {}
+          active === "eraser" ? { cursor: "url('/eraser.svg') 5 5, auto" } : active === "hand" ? { cursor: "grab" } : { }
         }
         onPointerDown={(e) =>
           managerRef.current?.onPointerDown(
@@ -132,12 +148,12 @@ export default function Canvas({
             top: textInput.screenY,
             fontSize: "16px",
             fontFamily: "monospace",
-            minWidth: "100px", 
-            minHeight: "30px", 
+            minWidth: "100px",
+            minHeight: "30px",
             lineHeight: "1.2",
             caretColor: "white",
-            border: "1px solid red", 
-            zIndex: 1000, 
+            border: "1px solid red",
+            zIndex: 1000,
           }}
           value={textInput.value}
           onChange={(e) =>
@@ -152,6 +168,13 @@ export default function Canvas({
         />
       )}
       <ToolBar active={active} setActive={handleToolChange} />
+      {selectedShapeStyles && (
+        <PropertiesPanel
+          style={selectedShapeStyles}
+          onChange={handleStyleChange}
+          shapeType={selectedShapeType}
+        />
+      )}
     </div>
   );
 }

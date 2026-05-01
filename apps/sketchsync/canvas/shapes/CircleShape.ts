@@ -37,44 +37,24 @@ export class CircleShape extends Shape{
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
-    let handleX = this.centerX;
-    let handleY = this.centerY;
-    switch (handle) {
-        case "e":
-        handleX += this.radius + dx;
-        break;
-        case "w":
-        handleX -= this.radius - dx;
-        break;
-        case "s":
-        handleY += this.radius + dy;
-        break;
-        case "n":
-        handleY -= this.radius - dy;
-        break;
-        case "se":
-        handleX += this.radius + dx;
-        handleY += this.radius + dy;
-        break;
-        case "sw":
-        handleX -= this.radius - dx;
-        handleY += this.radius + dy;
-        break;
-        case "ne":
-        handleX += this.radius + dx;
-        handleY -= this.radius - dy;
-        break;
-        case "nw":
-        handleX -= this.radius - dx;
-        handleY -= this.radius - dy;
-        break;
-    }
-    const dxNew = handleX - this.centerX;
-    const dyNew = handleY - this.centerY;
-
-    const newRadius = Math.sqrt(dxNew * dxNew + dyNew * dyNew);
-
-    this.radius = Math.max(1, newRadius);
+        switch (handle) {
+            case "e":
+            this.centerX += dx / 2;
+            this.radius = Math.max(1, this.radius + dx / 2);
+            break;
+            case "w":
+            this.centerX += dx / 2;
+            this.radius = Math.max(1, this.radius - dx / 2);
+            break;
+            case "s":
+            this.centerY += dy / 2;
+            this.radius = Math.max(1, this.radius + dy / 2);
+            break;
+            case "n":
+            this.centerY += dy / 2;
+            this.radius = Math.max(1, this.radius - dy / 2);
+            break;
+        }
     }
 
     getBoundingBox(): BoundingBox {
@@ -87,22 +67,38 @@ export class CircleShape extends Shape{
         }
     }
 
-    drawSelection(ctx: CanvasRenderingContext2D): void {
+    drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox()
-        const padding = 4
+         const size = 8 / zoom
 
         ctx.save()
         ctx.strokeStyle = "#6965db";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / zoom
         ctx.setLineDash([])
         ctx.beginPath()
         ctx.strokeRect(
-            box.x - padding,
-            box.y - padding,
-            box.width + padding * 2,
-            box.height + padding * 2
+            box.x ,
+            box.y ,
+            box.width ,
+            box.height 
         )
         ctx.setLineDash([]);
+
+        ctx.fillStyle = "#ffffff"
+        ctx.strokeStyle = "#6965db"
+        ctx.lineWidth = 1 / zoom
+
+        const handles = [                    
+            { x: box.x + box.width / 2,   y: box.y },                                     
+            { x: box.x + box.width,       y: box.y + box.height / 2 },  
+            { x: box.x + box.width / 2,   y: box.y + box.height },             
+            { x: box.x,                   y: box.y + box.height / 2 },  
+        ]
+
+        handles.forEach(h => {
+            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
+            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+        })
         ctx.restore()
     }
 

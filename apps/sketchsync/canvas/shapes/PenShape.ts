@@ -58,13 +58,33 @@ export class PenShape extends Shape{
         }
     }
 
-    drawSelection(ctx: CanvasRenderingContext2D): void {
+    drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox()
+        const size = 8 / zoom
         ctx.save()
         ctx.strokeStyle = "#6965db";
-        ctx.lineWidth = 1
+        ctx.lineWidth = 1 / zoom
         ctx.setLineDash([])
         ctx.strokeRect(box.x, box.y, box.width, box.height)
+        ctx.fillStyle = "#ffffff"
+        ctx.strokeStyle = "#6965db"
+        ctx.lineWidth = 1 / zoom
+
+        const handles = [
+            { x: box.x,                   y: box.y },                    
+            { x: box.x + box.width / 2,   y: box.y },                   
+            { x: box.x + box.width,       y: box.y },                    
+            { x: box.x + box.width,       y: box.y + box.height / 2 },  
+            { x: box.x + box.width,       y: box.y + box.height },       
+            { x: box.x + box.width / 2,   y: box.y + box.height },      
+            { x: box.x,                   y: box.y + box.height },       
+            { x: box.x,                   y: box.y + box.height / 2 },  
+        ]
+
+        handles.forEach(h => {
+            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
+            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+        })
         ctx.restore()
     }
 

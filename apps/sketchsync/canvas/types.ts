@@ -135,3 +135,8 @@ export type ResizeHandle =
   | "e"
   | "se" | "s" | "sw"
   | "w";
+
+  export interface PropertiesPanel{
+    styles: ShapeStyles,
+    onChange: (style : ShapeStyles) => void
+  }

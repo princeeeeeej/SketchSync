@@ -40,8 +40,12 @@ export class TextShape extends Shape{
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
-        const delta = Math.max(dx, dy)
-        this.fontSize = Math.max(8, this.fontSize + delta * 0.5)
+        switch(handle){
+            case "ne":
+                this.fontSize = Math.max(8, this.fontSize - dy * 0.5);
+                this.y += dy;
+                break;
+        }
     }
 
     getBoundingBox(): BoundingBox {
@@ -56,13 +60,26 @@ export class TextShape extends Shape{
         }
     }
 
-    drawSelection(ctx: CanvasRenderingContext2D): void {
+    drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox()
+        const size = 8 / zoom
         ctx.save()
         ctx.strokeStyle = "#6965db";
-        ctx.lineWidth = 1
+        ctx.lineWidth = 1 / zoom
         ctx.setLineDash([])
         ctx.strokeRect(box.x, box.y, box.width, box.height)
+        ctx.fillStyle = "#ffffff"
+        ctx.strokeStyle = "#6965db"
+        ctx.lineWidth = 1 / zoom
+
+        const handles = [                 
+            { x: box.x + box.width,       y: box.y },                    
+        ]
+
+        handles.forEach(h => {
+            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
+            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+        })
         ctx.restore()
     }
 
