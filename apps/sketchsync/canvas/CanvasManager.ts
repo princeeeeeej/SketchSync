@@ -1,3 +1,4 @@
+import { CursorManager } from "./CursorManager";
 import { ShapeFactory } from "./ShapeFactory";
 import { CircleShape } from "./shapes/CircleShape";
 import { LineShape } from "./shapes/LineShape";
@@ -5,9 +6,19 @@ import { PenShape } from "./shapes/PenShape";
 import { RectShape } from "./shapes/RectShape";
 import { Shape } from "./shapes/shape";
 import { TextShape } from "./shapes/TextShape";
-import { DEFAULT_STYLE, Point, ResizeHandle, ShapeData, ShapeStyles, Tool } from "./types";
+import {
+  DEFAULT_STYLE,
+  Point,
+  ResizeHandle,
+  ShapeData,
+  ShapeStyles,
+  Tool,
+} from "./types";
 
 export class CanvasManager {
+  private cursorManager: CursorManager;
+  private previews: Map<string, Shape>;
+
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private shapes: Map<string, Shape>;
@@ -31,13 +42,16 @@ export class CanvasManager {
   private activeHandle: ResizeHandle | null;
   private resizeStartX: number;
   private resizeStartY: number;
-  private resizeStartData: ShapeData | null
+  private resizeStartData: ShapeData | null;
 
   private moveStartX: number;
   private moveStartY: number;
   private originalShapeData: ShapeData | null;
 
   private erasedIds: Set<string>;
+
+  private history: ShapeData[][];
+  private historyIndex: number;
 
   private onShapeChange: (shapes: ShapeData[]) => void;
   private onErase: (ids: string[]) => void;
@@ -52,6 +66,7 @@ export class CanvasManager {
     shapeStyles: ShapeStyles | null,
     shapeType: string | null,
   ) => void;
+  private onHistoryChange: () => void;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -68,7 +83,10 @@ export class CanvasManager {
       shapeStyles: ShapeStyles | null,
       shapeType: string | null,
     ) => void,
+    onHistoryChange: () => void,
   ) {
+    this.cursorManager = new CursorManager();
+    this.previews = new Map();
     this.canvas = canvas;
     this.currentStyle = DEFAULT_STYLE;
     this.ctx = canvas.getContext("2d")!;
@@ -88,15 +106,18 @@ export class CanvasManager {
     this.originalShapeData = null;
     this.erasedIds = new Set();
     this.isResizing = false;
-    this.activeHandle = null
+    this.activeHandle = null;
     this.resizeStartX = 0;
     this.resizeStartY = 0;
-    this.resizeStartData = null
+    this.resizeStartData = null;
+    this.history = [];
+    this.historyIndex = -1;
     this.onShapeChange = onShapeChange;
     this.onErase = onErase;
     this.onCursorMove = onCursorMove;
     this.onTextRequest = onTextRequest;
     this.onSelectionChange = onSelectionChange;
+    this.onHistoryChange = onHistoryChange;
   }
 
   toCanvasCoords(screenX: number, screenY: number) {
@@ -153,29 +174,119 @@ export class CanvasManager {
     this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
   }
 
-  getActiveHandle(x: number, y: number) : ResizeHandle | null{
-    if(!this.selectedShape) return null
+  getActiveHandle(x: number, y: number): ResizeHandle | null {
+    if (!this.selectedShape) return null;
 
-    const box = this.selectedShape.getBoundingBox()
-    const tolerance = 6 / this.zoom
+    const box = this.selectedShape.getBoundingBox();
+    const tolerance = 6 / this.zoom;
 
-    const handles: {name: ResizeHandle, x: number, y: number}[] = [
-      {name: "nw", x: box.x, y: box.y},
-      {name: "n", x: box.x + box.width / 2, y: box.y},
-      {name: "ne", x: box.x + box.width, y: box.y},
-      {name: "w", x: box.x , y: box.y + box.height/2},
-      {name: "sw", x: box.x, y: box.y + box.height},
-      {name: "s", x: box.x + box.width/2, y: box.y + box.height},
-      {name: "se", x: box.x + box.width, y: box.y + box.height},
-      {name: "e", x: box.x + box.width, y: box.y + box.height/2}
-    ]
+    const handles: { name: ResizeHandle; x: number; y: number }[] = [
+      { name: "nw", x: box.x, y: box.y },
+      { name: "n", x: box.x + box.width / 2, y: box.y },
+      { name: "ne", x: box.x + box.width, y: box.y },
+      { name: "w", x: box.x, y: box.y + box.height / 2 },
+      { name: "sw", x: box.x, y: box.y + box.height },
+      { name: "s", x: box.x + box.width / 2, y: box.y + box.height },
+      { name: "se", x: box.x + box.width, y: box.y + box.height },
+      { name: "e", x: box.x + box.width, y: box.y + box.height / 2 },
+    ];
 
-    for(let handle of handles){
-      const dx = x - handle.x
-      const dy = y - handle.y
-      if (Math.sqrt(dx*dx + dy*dy) < tolerance) return handle.name
+    for (let handle of handles) {
+      const dx = x - handle.x;
+      const dy = y - handle.y;
+      if (Math.sqrt(dx * dx + dy * dy) < tolerance) return handle.name;
     }
-    return null
+    return null;
+  }
+
+  getAllShapes(): ShapeData[] {
+    return [...this.shapes.values()].map((s) => s.serialize());
+  }
+
+  private saveHistory(): void {
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    this.history.push([...this.shapes.values()].map((s) => s.serialize()));
+    this.historyIndex++;
+    this.onHistoryChange();
+  }
+
+  undo(): void {
+    if (this.historyIndex <= 0) return;
+    this.historyIndex--;
+    this.restoreHistory();
+  }
+
+  redo(): void {
+    if (this.historyIndex >= this.history.length - 1) return;
+    this.historyIndex++;
+    this.restoreHistory();
+  }
+
+  private restoreHistory(): void {
+    const snapshot = this.history[this.historyIndex];
+    this.shapes.clear();
+    snapshot.forEach((data) => {
+      const shape = ShapeFactory.deserialize(data);
+      this.shapes.set(shape.id, shape);
+    });
+    this.render();
+  }
+
+  canUndo(): boolean {
+    if (this.historyIndex <= 0) return false;
+    return true;
+  }
+
+  canRedo(): boolean {
+    if (this.historyIndex >= this.history.length - 1) return false;
+    return true;
+  }
+
+  updateCursor(userId: string, x: number, y: number, name: string): void {
+    this.cursorManager.update(userId, x, y, name);
+    this.render();
+  }
+
+  removeCursor(userId: string) {
+    this.cursorManager.remove(userId);
+    this.render();
+  }
+
+  isCurrentlyDrawing(): boolean {
+    if (
+      this.activeTool === "pointer" ||
+      this.activeTool === "hand" ||
+      this.activeTool === "eraser"
+    ) {
+      return false;
+    }
+    return this.isDrawing && this.currentShape !== null;
+  }
+
+  getCurrentShapeData(): ShapeData | null {
+    return this.currentShape?.serialize() ?? null;
+  }
+
+  updatePreview(userId: string, data: ShapeData): void {
+    if (!data) return;
+    const shape = ShapeFactory.deserialize(data);
+    this.previews.set(userId, shape);
+    this.render();
+  }
+
+  clearPreview(userId: string): void {
+    this.previews.delete(userId);
+    this.render();
+  }
+
+  isCurrentlyTransforming(): boolean {
+    if (this.activeTool !== "pointer") return false;
+    return this.isDrawing && (this.isResizing || this.selectedShape !== null);
+  }
+
+  getTransformPreview(): ShapeData | null {
+    if (!this.selectedShape) return null;
+    return this.selectedShape.serialize();
   }
 
   render(): void {
@@ -187,7 +298,36 @@ export class CanvasManager {
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.zoom, this.zoom);
 
-    this.shapes.forEach((shape) => shape.draw(this.ctx));
+    const previewedShapeIds = new Set<string>();
+    this.previews.forEach((previewShape) => {
+      previewedShapeIds.add(previewShape.id);
+    });
+
+    this.shapes.forEach((shape) => {
+      if (
+        this.isDrawing &&
+        this.activeTool === "pointer" &&
+        this.selectedShape &&
+        shape.id === this.selectedShape.id
+      ) {
+        return;
+      }
+
+      if (previewedShapeIds.has(shape.id)) {
+        return;
+      }
+
+      shape.draw(this.ctx);
+    });
+
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.5;
+    this.previews.forEach((shape) => shape.draw(this.ctx));
+    this.ctx.restore();
+
+    if (this.isDrawing && this.activeTool === "pointer" && this.selectedShape) {
+      this.selectedShape.draw(this.ctx);
+    }
 
     if (this.selectedShape) {
       this.selectedShape.drawSelection(this.ctx, this.zoom);
@@ -198,6 +338,7 @@ export class CanvasManager {
     }
 
     this.ctx.restore();
+    this.cursorManager.render(this.ctx, this.panX, this.panY, this.zoom);
   }
 
   onPointerDown(screenX: number, screenY: number) {
@@ -214,12 +355,12 @@ export class CanvasManager {
           const handle = this.getActiveHandle(x, y);
           if (handle) {
             this.isResizing = true;
-            this.isDrawing = true;  
-            this.activeHandle = handle; 
+            this.isDrawing = true;
+            this.activeHandle = handle;
             this.resizeStartX = x;
             this.resizeStartY = y;
             this.resizeStartData = JSON.parse(
-              JSON.stringify(this.selectedShape.serialize())
+              JSON.stringify(this.selectedShape.serialize()),
             );
             return;
           }
@@ -227,7 +368,7 @@ export class CanvasManager {
 
         const shape = this.getShape(x, y);
         this.selectedShape = shape;
-        const handle = this.getActiveHandle(x, y)
+        const handle = this.getActiveHandle(x, y);
         if (shape) {
           this.moveStartX = x;
           this.moveStartY = y;
@@ -279,17 +420,22 @@ export class CanvasManager {
         this.render();
         break;
       case "pointer":
-        if (this.isResizing && this.activeHandle && this.selectedShape && this.resizeStartData) {
+        if (
+          this.isResizing &&
+          this.activeHandle &&
+          this.selectedShape &&
+          this.resizeStartData
+        ) {
           const dx = x - this.resizeStartX;
           const dy = y - this.resizeStartY;
           const fresh = ShapeFactory.deserialize(
-            JSON.parse(JSON.stringify(this.resizeStartData))
+            JSON.parse(JSON.stringify(this.resizeStartData)),
           );
           fresh.resize(this.activeHandle, dx, dy);
           this.shapes.set(fresh.id, fresh);
           this.selectedShape = fresh;
           this.render();
-          break;  
+          break;
         }
 
         if (!this.selectedShape || !this.originalShapeData) break;
@@ -348,12 +494,15 @@ export class CanvasManager {
         this.isDrawing = false;
         break;
       case "pointer":
-        if(this.isResizing){
-          this.isResizing = false
-          this.activeHandle = null
-          this.resizeStartData = null
-          this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()),)
-          break
+        if (this.isResizing) {
+          this.isResizing = false;
+          this.activeHandle = null;
+          this.resizeStartData = null;
+          this.onShapeChange(
+            [...this.shapes.values()].map((s) => s.serialize()),
+          );
+          this.saveHistory();
+          break;
         }
         this.isDrawing = false;
         this.originalShapeData = null;
@@ -377,10 +526,8 @@ export class CanvasManager {
         this.isDrawing = false;
         if (this.erasedIds.size > 0) {
           this.onErase([...this.erasedIds]);
-          this.onShapeChange(
-            [...this.shapes.values()].map((s) => s.serialize()),
-          );
           this.erasedIds = new Set();
+          this.saveHistory();
         }
         break;
       case "text":
@@ -408,6 +555,7 @@ export class CanvasManager {
         this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
         this.currentShape = null;
         this.isDrawing = false;
+        this.saveHistory();
         this.render();
         break;
     }

@@ -1,18 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasManager } from "../canvas/CanvasManager";
 import { ShapeStyles, Tool } from "../canvas/types";
 import { ToolBar } from "./ToolBaar";
 import { BACKEND_URL } from "@/app/config";
 import PropertiesPanel from "./PropertiesPanel";
+import { Redo2, Undo2 } from "lucide-react";
+
+let lastCursorSend = 0;
+let lastPreviewSend = 0;
 
 export default function Canvas({
   roomId,
   socket,
+  userId,
+  name,
 }: {
   roomId: string;
   socket: WebSocket;
+  userId: string;
+  name: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const managerRef = useRef<CanvasManager | null>(null);
@@ -29,6 +37,8 @@ export default function Canvas({
   const [selectedShapeType, setSelectedShapeType] = useState<string | null>(
     null,
   );
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,9 +57,17 @@ export default function Canvas({
       (ids) => {
         if (socket.readyState !== WebSocket.OPEN) return;
         socket.send(JSON.stringify({ type: "erase", ids, roomId }));
+        setTimeout(() => {
+          const shapes = managerRef.current?.getAllShapes() ?? [];
+          socket.send(
+            JSON.stringify({ type: "save", elements: shapes, roomId }),
+          );
+        }, 100);
       },
       (x, y) => {
-        socket.send(JSON.stringify({ type: "cursor", x, y, roomId }));
+        socket.send(
+          JSON.stringify({ type: "cursor", x, y, roomId, userId, name }),
+        );
       },
       (canvasX, canvasY, screenX, screenY) => {
         setTextInput({ canvasX, canvasY, screenX, screenY, value: "" });
@@ -57,6 +75,9 @@ export default function Canvas({
       (styles, shapeType) => {
         setSelectedShapeStyles(styles);
         setSelectedShapeType(shapeType);
+      },
+      () => {
+        syncHistoryState();
       },
     );
 
@@ -76,6 +97,35 @@ export default function Canvas({
         managerRef.current.onRemoteErase(message.ids);
       if (message.type === "snapshot")
         managerRef.current.onRemoteDraw(message.data.elements ?? []);
+      if (message.type === "cursor") {
+        managerRef.current.updateCursor(
+          message.userId,
+          message.x,
+          message.y,
+          message.name,
+        );
+      }
+      if (message.type === "preview") {
+        if (message.element) {
+          managerRef.current?.updatePreview(message.userId, message.element);
+        }
+      }
+      if (message.type === "user_left") {
+        managerRef.current.removeCursor(message.userId);
+      }
+      if (message.type === "request_snapshot") {
+        const shapes = managerRef.current.getAllShapes();
+        socket.send(
+          JSON.stringify({
+            type: "save",
+            elements: shapes,
+            roomId: message.roomId,
+          }),
+        );
+      }
+      if (message.type === "clear_preview") {
+        managerRef.current.clearPreview(message.userId);
+      }
     };
 
     const handleWheel = (e: WheelEvent) => {
@@ -100,6 +150,11 @@ export default function Canvas({
     setSelectedShapeStyles(fresh ? { ...fresh } : null);
   };
 
+  const syncHistoryState = useCallback(() => {
+    setCanUndo(managerRef.current?.canUndo() ?? false);
+    setCanRedo(managerRef.current?.canRedo() ?? false);
+  }, []);
+
   const commitText = () => {
     if (!textInput || !textInput.value.trim()) {
       setTextInput(null);
@@ -118,7 +173,11 @@ export default function Canvas({
       <canvas
         ref={canvasRef}
         style={
-          active === "eraser" ? { cursor: "url('/eraser.svg') 5 5, auto" } : active === "hand" ? { cursor: "grab" } : { }
+          active === "eraser"
+            ? { cursor: "url('/eraser.svg') 5 5, auto" }
+            : active === "hand"
+              ? { cursor: "grab" }
+              : {}
         }
         onPointerDown={(e) =>
           managerRef.current?.onPointerDown(
@@ -126,18 +185,73 @@ export default function Canvas({
             e.nativeEvent.offsetY,
           )
         }
-        onPointerMove={(e) =>
+        onPointerMove={(e) => {
           managerRef.current?.onPointerMove(
             e.nativeEvent.offsetX,
             e.nativeEvent.offsetY,
-          )
-        }
-        onPointerUp={(e) =>
+          );
+          const now = Date.now();
+          if (now - lastCursorSend < 33) return;
+          lastCursorSend = now;
+
+          if (!managerRef.current) return;
+          if (socket.readyState !== WebSocket.OPEN) return;
+
+          const { x, y } = managerRef.current.toCanvasCoords(
+            e.nativeEvent.offsetX,
+            e.nativeEvent.offsetY,
+          );
+          socket.send(
+            JSON.stringify({ type: "cursor", x, y, roomId, userId, name }),
+          );
+
+          if (now - lastPreviewSend >= 16) {
+            if (managerRef.current.isCurrentlyDrawing()) {
+              const preview = managerRef.current.getCurrentShapeData();
+              if (preview) {
+                socket.send(
+                  JSON.stringify({
+                    type: "preview",
+                    userId,
+                    element: preview,
+                    roomId,
+                  }),
+                );
+              }
+            }
+
+            if (managerRef.current.isCurrentlyTransforming()) {
+              const preview = managerRef.current.getTransformPreview();
+              if (preview) {
+                socket.send(
+                  JSON.stringify({
+                    type: "preview",
+                    userId,
+                    element: preview,
+                    roomId,
+                  }),
+                );
+              }
+            }
+
+            lastPreviewSend = now;
+          }
+        }}
+        onPointerUp={(e) => {
           managerRef.current?.onPointerUp(
             e.nativeEvent.offsetX,
             e.nativeEvent.offsetY,
-          )
-        }
+          );
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(
+              JSON.stringify({
+                type: "clear_preview",
+                userId,
+                roomId,
+              }),
+            );
+          }
+        }}
       />
       {textInput && (
         <textarea
@@ -175,6 +289,28 @@ export default function Canvas({
           shapeType={selectedShapeType}
         />
       )}
+      <div className="absolute bottom-3 left-3 rounded-[10px] bg-[#363541] flex z-50">
+        <button
+          className={`p-3 rounded-l-[10px] ${canUndo ? "hover:bg-[#4a4954] opacity-100 cursor-pointer" : "opacity-30 "}`}
+          onClick={() => {
+            managerRef.current?.undo();
+            syncHistoryState();
+          }}
+          disabled={!canUndo}
+        >
+          <Undo2 color="white" className="h-3 w-3" />
+        </button>
+        <button
+          className={`p-3 rounded-r-[10px] ${canRedo ? "hover:bg-[#4a4954] opacity-100 cursor-pointer" : "opacity-30 "}`}
+          onClick={() => {
+            managerRef.current?.redo();
+            syncHistoryState();
+          }}
+          disabled={!canRedo}
+        >
+          <Redo2 color="white" className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }

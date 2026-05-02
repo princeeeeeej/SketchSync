@@ -124,6 +124,7 @@ export type WSMessage =
 
 export interface RemoteCursor {
   userId: string;
+  name: string
   x: number;
   y: number;
   lastSeen: number;

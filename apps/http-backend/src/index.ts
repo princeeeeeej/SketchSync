@@ -54,7 +54,8 @@ app.post("/signin", async(req, res) =>{
 
   const isPasswordValid = await bcrypt.compare(parsedData.data.password, user.password);
   const jwtToken = jwt.sign({
-    userId: user.id
+    userId: user.id,
+    name: user.name
   }, JWT_SECRET);
 
   if(!isPasswordValid){
