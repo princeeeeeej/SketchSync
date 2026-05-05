@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasManager } from "../canvas/CanvasManager";
 import { ShapeStyles, Tool } from "../canvas/types";
-import { ToolBar } from "./ToolBaar";
+
 import { BACKEND_URL } from "@/app/config";
 import PropertiesPanel from "./PropertiesPanel";
-import { Redo2, Undo2 } from "lucide-react";
+import { ToolBar } from "./ToolBaar";
+import { AvatarStack } from "./AvatarStack";
 
 let lastCursorSend = 0;
 let lastPreviewSend = 0;
@@ -39,6 +40,9 @@ export default function Canvas({
   );
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [collaborators, setCollaborators] = useState<
+    Record<string, { id: string; name: string }>
+  >({});
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -83,9 +87,15 @@ export default function Canvas({
 
     managerRef.current = manager;
 
-    fetch(`${BACKEND_URL}/canvas/${roomId}`)
+    const token = localStorage.getItem("token");
+    fetch(`${BACKEND_URL}/canvas/${roomId}`, {
+      headers: { authorization: token ?? "" },
+    })
       .then((res) => res.json())
-      .then((data) => manager.loadShapes(data.elements) ?? []);
+      .then((data) => manager.loadShapes(data.elements) ?? [])
+      .catch((err) => {
+        console.log(err);
+      });
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
@@ -104,6 +114,15 @@ export default function Canvas({
           message.y,
           message.name,
         );
+        setCollaborators((prev) => {
+          if (!prev[message.userId]) {
+            return {
+              ...prev,
+              [message.userId]: { id: message.userId, name: message.name },
+            };
+          }
+          return prev;
+        });
       }
       if (message.type === "preview") {
         if (message.element) {
@@ -112,6 +131,11 @@ export default function Canvas({
       }
       if (message.type === "user_left") {
         managerRef.current.removeCursor(message.userId);
+        setCollaborators((prev) => {
+          const next = { ...prev };
+          delete next[message.userId];
+          return next;
+        });
       }
       if (message.type === "request_snapshot") {
         const shapes = managerRef.current.getAllShapes();
@@ -170,6 +194,19 @@ export default function Canvas({
 
   return (
     <div className="relative w-screen h-screen">
+      <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 bg-[#09090b]/80 backdrop-blur-md border border-white/10 shadow-sm rounded-full z-50">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+        <span className="text-xs font-medium text-zinc-400">
+          Room <span className="font-mono text-zinc-200 ml-1">{roomId}</span>
+        </span>
+      </div>
+      <AvatarStack 
+        users={[
+          { id: userId, name: name }, 
+          ...Object.values(collaborators) 
+        ]} 
+        currentUserId={userId} 
+      />
       <canvas
         ref={canvasRef}
         style={
@@ -281,7 +318,25 @@ export default function Canvas({
           }}
         />
       )}
-      <ToolBar active={active} setActive={handleToolChange} />
+      <ToolBar
+        selectedTool={active}
+        setSelectedTool={handleToolChange}
+        onUndo={() => {
+          managerRef.current?.undo();
+          syncHistoryState();
+        }}
+        onRedo={() => {
+          managerRef.current?.redo();
+          syncHistoryState();
+        }}
+        onClear={() => {
+          managerRef.current?.clearCanvas();
+          console.log("Clear canvas clicked");
+        }}
+        onDownload={() => {
+          managerRef.current?.exportPNG();
+        }}
+      />
       {selectedShapeStyles && (
         <PropertiesPanel
           style={selectedShapeStyles}
@@ -289,28 +344,6 @@ export default function Canvas({
           shapeType={selectedShapeType}
         />
       )}
-      <div className="absolute bottom-3 left-3 rounded-[10px] bg-[#363541] flex z-50">
-        <button
-          className={`p-3 rounded-l-[10px] ${canUndo ? "hover:bg-[#4a4954] opacity-100 cursor-pointer" : "opacity-30 "}`}
-          onClick={() => {
-            managerRef.current?.undo();
-            syncHistoryState();
-          }}
-          disabled={!canUndo}
-        >
-          <Undo2 color="white" className="h-3 w-3" />
-        </button>
-        <button
-          className={`p-3 rounded-r-[10px] ${canRedo ? "hover:bg-[#4a4954] opacity-100 cursor-pointer" : "opacity-30 "}`}
-          onClick={() => {
-            managerRef.current?.redo();
-            syncHistoryState();
-          }}
-          disabled={!canRedo}
-        >
-          <Redo2 color="white" className="h-3 w-3" />
-        </button>
-      </div>
     </div>
   );
 }

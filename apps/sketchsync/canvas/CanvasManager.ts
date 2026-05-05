@@ -52,6 +52,7 @@ export class CanvasManager {
 
   private history: ShapeData[][];
   private historyIndex: number;
+  private isExporting: boolean;
 
   private onShapeChange: (shapes: ShapeData[]) => void;
   private onErase: (ids: string[]) => void;
@@ -112,6 +113,7 @@ export class CanvasManager {
     this.resizeStartData = null;
     this.history = [];
     this.historyIndex = -1;
+    this.isExporting = false;
     this.onShapeChange = onShapeChange;
     this.onErase = onErase;
     this.onCursorMove = onCursorMove;
@@ -289,10 +291,66 @@ export class CanvasManager {
     return this.selectedShape.serialize();
   }
 
+  clearCanvas(): void {
+    this.shapes.clear();
+    this.onShapeChange([]);
+    this.saveHistory();
+    this.render();
+  }
+
+  // Inside CanvasManager.ts
+
+  // Inside CanvasManager.ts
+
+  private drawGrid() {
+    if (!this.ctx || !this.canvas) return;
+
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    // 1. ALWAYS draw the solid dark background
+    this.ctx.fillStyle = "#09090b";
+    this.ctx.fillRect(0, 0, width, height);
+
+    if (this.isExporting) return;
+
+    this.ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    const currentPanX = this.panX || 0;
+    const currentPanY = this.panY || 0;
+    const currentZoom = this.zoom || 1;
+
+    let baseGridSize = 24;
+    let scaledGridSize = baseGridSize * currentZoom;
+
+    while (scaledGridSize < 15) {
+      baseGridSize *= 2;
+      scaledGridSize = baseGridSize * currentZoom;
+    }
+    while (scaledGridSize > 60) {
+      baseGridSize /= 2;
+      scaledGridSize = baseGridSize * currentZoom;
+    }
+
+    const offsetX = currentPanX % scaledGridSize;
+    const offsetY = currentPanY % scaledGridSize;
+
+    for (
+      let x = offsetX - scaledGridSize;
+      x < width + scaledGridSize;
+      x += scaledGridSize
+    ) {
+      for (
+        let y = offsetY - scaledGridSize;
+        y < height + scaledGridSize;
+        y += scaledGridSize
+      ) {
+        this.ctx.fillRect(x, y, 1.5, 1.5);
+      }
+    }
+  }
+
   render(): void {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = "rgb(18, 18, 18)";
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.drawGrid();
 
     this.ctx.save();
     this.ctx.translate(this.panX, this.panY);
@@ -574,7 +632,8 @@ export class CanvasManager {
     this.render();
   }
 
-  loadShapes(elements: ShapeData[]): void {
+  loadShapes(elements: ShapeData[] | undefined): void {
+    if (!elements) return;
     this.shapes.clear();
     elements.forEach((data) => {
       const shape = ShapeFactory.deserialize(data);
@@ -590,11 +649,22 @@ export class CanvasManager {
     this.render();
   }
 
-  exportPNG(): void {
+
+
+  public exportPNG(roomName: string = "board"): void {
+    if (!this.canvas) return;
+    this.isExporting = true;
+    this.render();
+    const dataUrl = this.canvas.toDataURL("image/png");
+    this.isExporting = false;
+    this.render();
     const link = document.createElement("a");
-    link.download = "sketch.png";
-    link.href = this.canvas.toDataURL("image/png");
+    link.download = `SketchSync-${roomName}-${Date.now()}.png`;
+    link.href = dataUrl;
+    
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   }
 
   commitText(canvasX: number, canvasY: number, text: string): void {

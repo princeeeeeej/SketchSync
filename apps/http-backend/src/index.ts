@@ -1,12 +1,13 @@
 import express from "express"
 import "dotenv/config"; 
-import { CreateRoomSchema, CreateUserSchema, SigninSchema} from "@repo/common/types"
-import { db, users, eq, rooms, desc, canvasSnapshots} from "@repo/db/client"
+import { CreateRoomSchema, CreateUserSchema, JoinRoomSchema, SigninSchema} from "@repo/common/types"
+import { db, users, eq, rooms, desc, canvasSnapshots, roomMembers, and } from "@repo/db/client"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { middleware } from "./middleware";
 import cors from "cors"
+
 
 const app = express();
 app.use(express.json());
@@ -69,7 +70,27 @@ app.post("/signin", async(req, res) =>{
   })
 })
 
-app.post("/room",middleware, async(req, res) => {
+
+app.get("/room/:roomId",middleware, async (req, res) => {
+  const roomId = Number(req.params.roomId);
+  const data = await db.query.canvasSnapshots.findMany({
+    where: eq(canvasSnapshots.roomId, roomId),
+    orderBy: desc(canvasSnapshots.id)
+  })
+
+  if(!data){
+    return res.status(404).json({
+      message: "No data found"
+    })
+  }
+
+  res.json({
+    data
+  })
+
+})
+
+app.post("/createRoom",middleware, async(req, res) => {
   const parsedData = CreateRoomSchema.safeParse(req.body);
   if(!parsedData.success){
     return res.json({
@@ -97,25 +118,46 @@ app.post("/room",middleware, async(req, res) => {
   }
 })
 
-app.get("/room/:roomId",middleware, async (req, res) => {
-  const roomId = Number(req.params.roomId);
-  const data = await db.query.canvasSnapshots.findMany({
-    where: eq(canvasSnapshots.roomId, roomId),
-    orderBy: desc(canvasSnapshots.id)
-  })
+app.post("/joinRoom", middleware, async (req, res) => {
+  const parsedData = JoinRoomSchema.safeParse(req.body);
 
-  if(!data){
-    return res.status(404).json({
-      message: "No data found"
-    })
+  if (!parsedData.success) {
+    return res.status(400).json({ message: "Incorrect inputs" });
+  }
+
+  const roomId = Number(parsedData.data.roomId);
+  //@ts-ignore
+  const userId = req.userId;
+
+  const room = await db.query.rooms.findFirst({
+    where: eq(rooms.id, roomId)
+  });
+
+  if (!room) {
+    return res.status(404).json({ message: "Room not found" });
+  }
+
+  const existing = await db.query.roomMembers.findFirst({
+    where: and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, userId)
+    )
+  });
+
+  if (!existing) {
+    await db.insert(roomMembers).values({
+      roomId,
+      userId
+    });
   }
 
   res.json({
-    data
-  })
+    roomId: room.id,
+    message: "Room joined"
+  });
+});
 
-})
-app.get("/canvas/:roomId", async (req, res) => {
+app.get("/canvas/:roomId",middleware, async (req, res) => {
   const roomId = Number(req.params.roomId)
 
   if (isNaN(roomId)) {

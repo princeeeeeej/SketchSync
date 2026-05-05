@@ -225,15 +225,12 @@ wss.on("connection", (ws, request) => {
 
       case "erase": {
         const roomId = parseInt(parsedData.roomId);
-        console.log("📥 Server received ERASE:", parsedData.ids); // ✅ Add this
         if (isNaN(roomId)) return;
 
         const message = {
           type: "erase",
           ids: parsedData.ids,
         };
-        console.log("📤 Broadcasting ERASE:", message); // ✅ Add this
-
         broadcast(roomId, message, ws);
         break;
       }
@@ -270,12 +267,14 @@ wss.on("connection", (ws, request) => {
 
     // leave all rooms cleanly
     user.rooms.forEach((roomId) => {
-      leaveRoom(ws, roomId);
       broadcast(roomId, {
         type: "user_left",
         userId: user.userId,
         roomId,
       });
+      setTimeout(() => {
+        leaveRoom(ws, roomId);
+      }, 50);
     });
 
     wsToUser.delete(ws);

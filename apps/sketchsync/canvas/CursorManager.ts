@@ -52,21 +52,17 @@ export class CursorManager {
       const screenX = cursor.x * zoom + panX;
       const screenY = cursor.y * zoom + panY;
 
-      // draw arrow
       this.drawCursor(ctx, screenX, screenY, cursor.color);
 
-      // name badge
       ctx.save();
       ctx.font = "bold 11px sans-serif";
       const nameWidth = ctx.measureText(cursor.name).width;
 
-      // badge background
       ctx.fillStyle = cursor.color;
       ctx.beginPath();
       ctx.roundRect(screenX + 14, screenY + 14, nameWidth + 10, 20, 4);
       ctx.fill();
 
-      // badge text
       ctx.fillStyle = "#ffffff";
       ctx.fillText(cursor.name, screenX + 19, screenY + 28);
       ctx.restore();
