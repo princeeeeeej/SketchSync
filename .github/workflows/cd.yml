@@ -47,3 +47,28 @@ jobs:
           tags: |
             princejais0310/sketchsync-web:latest
             princejais0310/sketchsync-web:${{ github.sha }}
+
+  deploy:
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy EC2
+        uses: appleboy/ssh-action@v1.0.3
+
+        with:
+          host: ${{ secrets.EC_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+          script: |
+            cd ~/sketchsync
+
+            docker compose pull
+
+            docker compose down
+
+            docker compose up -d
+
+            docker image prune -f

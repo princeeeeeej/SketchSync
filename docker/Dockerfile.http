@@ -16,6 +16,8 @@ RUN pnpm install --frozen-lockfile
 
 RUN pnpm run db:generate
 
+RUN pnpm --filter @repo/db build
+
 EXPOSE 3001
 
 CMD ["pnpm", "run", "start:backend"]
