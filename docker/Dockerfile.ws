@@ -14,9 +14,9 @@ COPY ./apps/ws-backend ./apps/ws-backend
 
 RUN pnpm install --frozen-lockfile
 
+RUN pnpm --filter @repo/db build
 RUN pnpm run db:generate
 
-RUN pnpm --filter @repo/db build
 
 EXPOSE 8080
 
