@@ -1,0 +1,49 @@
+name: Deploy SketchSync
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build HTTP Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.http
+          push: true
+          tags: |
+            princejais0310/sketchsync-http:latest
+            princejais0310/sketchsync-http:${{ github.sha }}
+
+      - name: Build WS Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.ws
+          push: true
+          tags: |
+            princejais0310/sketchsync-ws:latest
+            princejais0310/sketchsync-ws:${{ github.sha }}
+
+      - name: Build Web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.web
+          push: true
+          tags: |
+            princejais0310/sketchsync-web:latest
+            princejais0310/sketchsync-web:${{ github.sha }}

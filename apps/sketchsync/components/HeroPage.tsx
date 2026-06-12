@@ -10,7 +10,6 @@ import {
   Terminal, Shield, CheckCircle, Layers, Minus,
   Download, Plus, HelpCircle
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 // Register GSAP plugins

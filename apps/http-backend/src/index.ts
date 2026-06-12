@@ -190,7 +190,7 @@ app.get("/canvas/:roomId", middleware, async (req, res) => {
   })
 
   if (!snapshot) {
-    return res.json({ elements: [] })  // new room — empty canvas, not 404
+    return res.json({ elements: [] })  
   }
 
   res.json({
