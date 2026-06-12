@@ -47,6 +47,6 @@ jobs:
           build-args: |
             NEXT_PUBLIC_BACKEND_URL=http://65.2.148.64:3001
             NEXT_PUBLIC_WS_URL=ws://65.2.148.64:8080
-          tags:
+          tags: |
             princejais0310/sketchsync-web:latest
             princejais0310/sketchsync-web:${{ github.sha }}
