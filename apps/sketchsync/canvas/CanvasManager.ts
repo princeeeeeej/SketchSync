@@ -401,6 +401,7 @@ export class CanvasManager {
 
   onPointerDown(screenX: number, screenY: number) {
     const { x, y } = this.toCanvasCoords(screenX, screenY);
+    console.log(`[Drawing] Pointer Down - Tool: ${this.activeTool}, Screen: (${screenX}, ${screenY}), Canvas: (${Math.round(x)}, ${Math.round(y)})`);
 
     switch (this.activeTool) {
       case "hand":
@@ -468,6 +469,7 @@ export class CanvasManager {
   onPointerMove(screenX: number, screenY: number) {
     if (!this.isDrawing) return;
     const { x, y } = this.toCanvasCoords(screenX, screenY);
+    console.log(`[Drawing] Pointer Move - Tool: ${this.activeTool}, Canvas: (${Math.round(x)}, ${Math.round(y)})`);
 
     switch (this.activeTool) {
       case "hand":
@@ -547,6 +549,7 @@ export class CanvasManager {
   onPointerUp(screenX: number, screenY: number) {
     if (!this.isDrawing) return;
     const { x, y } = this.toCanvasCoords(screenX, screenY);
+    console.log(`[Drawing] Pointer Up - Tool: ${this.activeTool}, Canvas: (${Math.round(x)}, ${Math.round(y)})`);
     switch (this.activeTool) {
       case "hand":
         this.isDrawing = false;
@@ -620,6 +623,7 @@ export class CanvasManager {
   }
 
   onRemoteDraw(elements: ShapeData[]): void {
+    console.log(`[Drawing] Remote Draw - Received elements:`, elements);
     elements.forEach((data) => {
       const shape = ShapeFactory.deserialize(data);
       this.shapes.set(shape.id, shape);
@@ -628,6 +632,7 @@ export class CanvasManager {
   }
 
   onRemoteErase(ids: string[]) {
+    console.log(`[Drawing] Remote Erase - Received IDs:`, ids);
     ids.forEach((id) => this.shapes.delete(id));
     this.render();
   }
