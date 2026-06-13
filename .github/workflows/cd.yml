@@ -50,3 +50,19 @@ jobs:
           tags: |
             princejais0310/sketchsync-web:latest
             princejais0310/sketchsync-web:${{ github.sha }}
+
+      - name: Deploy to EC2 machine
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/ssh_key
+          chmod 600 ~/ssh_key
+
+          ssh -i ~/ssh_key -o StrictHostKeyChecking=no ubuntu@65.2.148.64 << 'EOF'
+          cd ~/sketchsync
+
+          docker compose down
+          docker compose pull
+          docker compose up -d
+          docker image prune -f
+          EOF
+
+          
