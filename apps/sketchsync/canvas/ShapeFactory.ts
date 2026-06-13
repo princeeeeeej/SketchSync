@@ -4,11 +4,12 @@ import { PenShape } from "./shapes/PenShape";
 import { RectShape } from "./shapes/RectShape";
 import { Shape } from "./shapes/shape";
 import { TextShape } from "./shapes/TextShape";
+import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_STYLE, ShapeData, ShapeStyles, Tool } from "./types";
 
 export class ShapeFactory{
     static create(tool: Tool, x:number, y: number, style: ShapeStyles = DEFAULT_STYLE): Shape{
-        const id = crypto.randomUUID()
+        const id = uuidv4()
 
         switch(tool){
             case "rect":
