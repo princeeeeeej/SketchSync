@@ -290,6 +290,130 @@ This starts:
 
 ---
 
+---
+
+# 🐳 Docker Setup
+
+## Prerequisites
+
+- Docker Desktop installed
+- Docker Compose v2+
+
+---
+
+## 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/sketchsync.git
+cd sketchsync
+```
+
+---
+
+## 2. Configure environment variables
+
+**`packages/db/.env`**
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=yourpassword
+POSTGRES_DB=sketchsync
+```
+
+**`apps/http-backend/.env`**
+```env
+DATABASE_URL=postgresql://postgres:yourpassword@postgres:5432/sketchsync
+JWT_SECRET=yoursecret
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+**`apps/ws-backend/.env`**
+```env
+DATABASE_URL=postgresql://postgres:yourpassword@postgres:5432/sketchsync
+JWT_SECRET=yoursecret
+```
+
+> ⚠️ `DATABASE_URL` must use `postgres` as host (Docker service name) — not `localhost`
+
+---
+
+## 3. Start all services
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+| Service | Port |
+|---|---|
+| Next.js Frontend | http://localhost:3000 |
+| Express HTTP API | http://localhost:3001 |
+| WebSocket Server | ws://localhost:8080 |
+| PostgreSQL | localhost:5432 |
+
+Database migrations run automatically on first start.
+
+---
+
+## 4. Stop services
+
+```bash
+docker compose down
+```
+
+To also remove database volumes:
+```bash
+docker compose down -v
+```
+
+---
+
+## Production Deployment (EC2 + CI/CD)
+
+SketchSync ships with a GitHub Actions pipeline for automated deployment to AWS EC2.
+
+### Pipeline Flow
+
+```
+git push main
+  → GitHub Actions builds 3 Docker images
+  → pushes to Docker Hub
+  → SSH into EC2
+  → pulls latest images
+  → docker compose up -d
+  → cleanup old images
+```
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
+| `SSH_PRIVATE_KEY` | EC2 `.pem` key file contents |
+| `EC2_ENV` | Production `.env` file contents |
+
+### EC2 First-Time Setup
+
+```bash
+# install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker ubuntu
+sudo apt install docker-compose-plugin -y
+
+# create project folder
+mkdir ~/sketchsync && cd ~/sketchsync
+
+# create docker-compose.yml with image: tags (not build:)
+# create .env with production values
+
+# first deploy
+docker compose pull
+docker compose up -d
+```
+
+After setup — every push to `main` triggers automatic redeploy in ~3-5 minutes.
+
 # 🧪 Future Improvements
 
 - CRDT-based synchronization
