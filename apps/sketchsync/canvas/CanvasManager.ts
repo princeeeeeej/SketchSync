@@ -298,23 +298,18 @@ export class CanvasManager {
     this.render();
   }
 
-  // Inside CanvasManager.ts
-
-  // Inside CanvasManager.ts
-
   private drawGrid() {
     if (!this.ctx || !this.canvas) return;
 
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    // 1. ALWAYS draw the solid dark background
-    this.ctx.fillStyle = "#09090b";
+    this.ctx.fillStyle = "#fcfcfb";
     this.ctx.fillRect(0, 0, width, height);
 
     if (this.isExporting) return;
 
-    this.ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    this.ctx.fillStyle = "#d4d0cb";
     const currentPanX = this.panX || 0;
     const currentPanY = this.panY || 0;
     const currentZoom = this.zoom || 1;
@@ -653,8 +648,6 @@ export class CanvasManager {
     this.zoom = Math.min(Math.max(this.zoom * factor, 0.05), 20);
     this.render();
   }
-
-
 
   public exportPNG(roomName: string = "board"): void {
     if (!this.canvas) return;

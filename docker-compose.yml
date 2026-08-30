@@ -23,6 +23,8 @@ services:
         condition: service_healthy
     env_file:
       - ./apps/http-backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:12345678@postgres:5432/sketchsync
     command: sh -c "cd packages/db && pnpm run push"
     restart: "no"
 
@@ -37,7 +39,8 @@ services:
         condition: service_completed_successfully
     env_file:
       - ./apps/http-backend/.env
-
+    environment:
+      - DATABASE_URL=postgresql://postgres:12345678@postgres:5432/sketchsync
   ws-backend:
     build:
       context: .
@@ -49,7 +52,8 @@ services:
         condition: service_completed_successfully
     env_file:
       - ./apps/ws-backend/.env
-
+    environment:
+      - DATABASE_URL=postgresql://postgres:12345678@postgres:5432/sketchsync
   web:
     build:
       context: .

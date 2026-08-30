@@ -1,4 +1,3 @@
-
 import { relations } from "drizzle-orm";
 import { integer, json, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
@@ -20,14 +19,14 @@ export const rooms = pgTable("rooms",{
 
 export const roomMembers = pgTable("room_members", {
   id:       serial("id").primaryKey(),
-  roomId:   integer("room_id").notNull().references(() => rooms.id, { onDelete: "cascade" }), // ← integer
+  roomId:   integer("room_id").notNull().references(() => rooms.id, { onDelete: "cascade" }),
   userId:   text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 })
 
 export const canvasSnapshots = pgTable("canvas_snapshots", {
   id:        serial("id").primaryKey(),
-  roomId:    integer("room_id").notNull().unique().references(() => rooms.id, { onDelete: "cascade" }), // ← integer + unique
+  roomId:    integer("room_id").notNull().unique().references(() => rooms.id, { onDelete: "cascade" }),
   data:      json("data").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })

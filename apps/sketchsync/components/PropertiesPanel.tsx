@@ -1,5 +1,4 @@
 import React from "react";
-// Assuming ShapeStyles and ShapeType are correctly imported from your types[cite: 1]
 import { ShapeStyles } from "../canvas/types";
 
 export default function PropertiesPanel({
@@ -15,29 +14,29 @@ export default function PropertiesPanel({
   const trackPercentOpacity = style.opacity * 100;
 
   const strokeColors = [
-    "#ffffff", "#9ca3af", "#ef4444", "#f59e0b",
-    "#10b981", "#3b82f6", "#8b5cf6", "#ec4899",
+    "#1c1917", "#e85d4c", "#2563eb", "#059669",
+    "#d97706", "#7c3aed", "#ec4899", "#78716c",
   ];
 
   const fillColors = [
     "transparent",
     "#fee2e2", "#fef3c7", "#d1fae5", "#dbeafe",
-    "#ede9fe", "#fce7f3", "#f3f4f6", "#3f3f46",
+    "#ede9fe", "#fce7f3", "#f3f4f6", "#1c1917",
   ];
 
   return (
-    <div className="absolute right-4 top-24 bg-[#09090b]/80 backdrop-blur-xl border border-white/10 shadow-2xl p-4 rounded-2xl z-50 w-56 text-zinc-100 flex flex-col gap-5">
+    <div className="absolute right-6 top-24 bg-white/90 backdrop-blur-xl border border-stone-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.08)] p-4 rounded-2xl z-50 w-56 text-stone-800 flex flex-col gap-5">
       <div className="flex flex-col gap-2.5">
-        <h2 className="text-xs font-medium text-zinc-400">Stroke Color</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Stroke Color</h2>
         <div className="flex flex-wrap gap-2">
           {strokeColors.map((c) => (
             <button
               key={c}
               onClick={() => onChange({ strokeColor: c })}
-              className={`w-5 h-5 rounded-full transition-all ${
+              className={`w-5 h-5 rounded-full transition-all cursor-pointer ${
                 style.strokeColor === c
-                  ? "ring-2 ring-zinc-300 ring-offset-2 ring-offset-[#09090b] scale-110"
-                  : "hover:scale-110 border border-white/10"
+                  ? "ring-2 ring-stone-900 ring-offset-2 ring-offset-white scale-110"
+                  : "hover:scale-110 border border-stone-200"
               }`}
               style={{ backgroundColor: c }}
             />
@@ -47,18 +46,18 @@ export default function PropertiesPanel({
 
       {(shapeType === "rect" || shapeType === "circle") && (
         <div className="flex flex-col gap-2.5">
-          <h2 className="text-xs font-medium text-zinc-400">Background</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Background</h2>
           <div className="flex flex-wrap gap-2">
             {fillColors.map((b) => (
               <button
                 key={b}
                 onClick={() => onChange({ fillColor: b })}
-                className={`w-5 h-5 rounded-full transition-all relative overflow-hidden ${
+                className={`w-5 h-5 rounded-full transition-all relative overflow-hidden cursor-pointer ${
                   style.fillColor === b
-                    ? "ring-2 ring-zinc-300 ring-offset-2 ring-offset-[#09090b] scale-110"
-                    : "hover:scale-110 border border-white/10"
+                    ? "ring-2 ring-stone-900 ring-offset-2 ring-offset-white scale-110"
+                    : "hover:scale-110 border border-stone-200"
                 }`}
-                style={{ backgroundColor: b === "transparent" ? "#18181b" : b }}
+                style={{ backgroundColor: b === "transparent" ? "#f5f5f4" : b }}
               >
                 {b === "transparent" && (
                   <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,transparent_45%,#ef4444_45%,#ef4444_55%,transparent_55%)]" />
@@ -71,16 +70,16 @@ export default function PropertiesPanel({
 
       {shapeType !== "text" && (
         <div className="flex flex-col gap-2.5">
-          <h2 className="text-xs font-medium text-zinc-400">Stroke Style</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Stroke Style</h2>
           <div className="flex gap-2">
             {(["solid", "dashed", "dotted"] as const).map((size) => (
               <button
                 key={size}
                 onClick={() => onChange({ strokeSize: size })}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${
                   style.strokeSize === size
-                    ? "bg-zinc-700 text-white shadow-inner"
-                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200"
+                    ? "bg-stone-900 text-white shadow-sm"
+                    : "bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-900"
                 }`}
               >
                 <div className={`w-4 border-t-2 ${
@@ -97,8 +96,8 @@ export default function PropertiesPanel({
       {shapeType !== "text" && (
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center">
-            <h2 className="text-xs font-medium text-zinc-400">Stroke Width</h2>
-            <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800/80 px-1.5 py-0.5 rounded">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Stroke Width</h2>
+            <span className="text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
               {style.strokeWidth}px
             </span>
           </div>
@@ -109,18 +108,19 @@ export default function PropertiesPanel({
             step={1}
             value={style.strokeWidth}
             onChange={(e) => onChange({ strokeWidth: Number(e.target.value) })}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer outline-none"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer outline-none"
             style={{
-              background: `linear-gradient(to right, #d4d4d8 ${trackPercent}%, #27272a ${trackPercent}%)`
+              background: `linear-gradient(to right, #1c1917 ${trackPercent}%, #e7e5e4 ${trackPercent}%)`
             }}
           />
         </div>
       )}
+
       {shapeType === "text" && (
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center">
-            <h2 className="text-xs font-medium text-zinc-400">Font Size</h2>
-            <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800/80 px-1.5 py-0.5 rounded">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Font Size</h2>
+            <span className="text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
               {style.fontSize ?? 16}px
             </span>
           </div>
@@ -131,17 +131,18 @@ export default function PropertiesPanel({
             step={2}
             value={style.fontSize ?? 16}
             onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer outline-none"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer outline-none"
             style={{
-              background: `linear-gradient(to right, #d4d4d8 ${((style.fontSize ?? 16) - 12) / (72 - 12) * 100}%, #27272a ${((style.fontSize ?? 16) - 12) / (72 - 12) * 100}%)`
+              background: `linear-gradient(to right, #1c1917 ${((style.fontSize ?? 16) - 12) / (72 - 12) * 100}%, #e7e5e4 ${((style.fontSize ?? 16) - 12) / (72 - 12) * 100}%)`
             }}
           />
         </div>
       )}
+
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center">
-          <h2 className="text-xs font-medium text-zinc-400">Opacity</h2>
-          <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800/80 px-1.5 py-0.5 rounded">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">Opacity</h2>
+          <span className="text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
             {Math.round(style.opacity * 100)}%
           </span>
         </div>
@@ -152,13 +153,12 @@ export default function PropertiesPanel({
           step={1}
           value={style.opacity * 100}
           onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })}
-          className="w-full h-1 rounded-full appearance-none cursor-pointer outline-none"
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer outline-none"
           style={{
-            background: `linear-gradient(to right, #d4d4d8 ${trackPercentOpacity}%, #27272a ${trackPercentOpacity}%)`
+            background: `linear-gradient(to right, #1c1917 ${trackPercentOpacity}%, #e7e5e4 ${trackPercentOpacity}%)`
           }}
         />
       </div>
-      
     </div>
   );
 }

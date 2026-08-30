@@ -1,22 +1,17 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import jwt from "jsonwebtoken";
-import { canvasSnapshots, db, eq } from "@repo/db/client";
+import { canvasSnapshots, db, eq, rooms } from "@repo/db/client";
 
 const wss = new WebSocketServer({ port: 8080 });
 
 interface User {
   userId: string;
-  rooms: Set<number>; // Set = O(1) add/delete/has
+  rooms: Set<number>;
 }
 
-// ws → user data
 const wsToUser = new Map<WebSocket, User>();
-
-// roomId → connected websockets
 const roomToClients = new Map<number, Set<WebSocket>>();
-
-// AUTH
 
 const checkUser = (token: string): string | null => {
   try {
@@ -27,8 +22,6 @@ const checkUser = (token: string): string | null => {
     return null;
   }
 };
-
-// HELPERS
 
 const joinRoom = (ws: WebSocket, roomId: number) => {
   const user = wsToUser.get(ws);
@@ -49,7 +42,6 @@ const leaveRoom = (ws: WebSocket, roomId: number) => {
   user.rooms.delete(roomId);
   roomToClients.get(roomId)?.delete(ws);
 
-  // cleanup empty room from map
   if (roomToClients.get(roomId)?.size === 0) {
     roomToClients.delete(roomId);
   }
@@ -73,23 +65,25 @@ const isRoomEmpty = (roomId: number): boolean => {
 };
 
 const saveSnapshot = async (roomId: number, elements: any) => {
-  await db
-    .insert(canvasSnapshots)
-    .values({
-      roomId,
-      data: { elements, appState: {} },
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: canvasSnapshots.roomId,
-      set: {
+  try {
+    await db
+      .insert(canvasSnapshots)
+      .values({
+        roomId,
         data: { elements, appState: {} },
         updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: canvasSnapshots.roomId,
+        set: {
+          data: { elements, appState: {} },
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err) {
+    console.error(`[WS] Snapshot save error for room ${roomId}:`, err);
+  }
 };
-
-// CONNECTION
 
 wss.on("connection", (ws, request) => {
   const url = request.url;
@@ -101,8 +95,6 @@ wss.on("connection", (ws, request) => {
   if (!userId) return ws.close(4001, "Unauthorized");
 
   wsToUser.set(ws, { userId, rooms: new Set() });
-
-  // MESSAGES
 
   ws.on("message", async (raw) => {
     let parsedData: any;
@@ -120,9 +112,22 @@ wss.on("connection", (ws, request) => {
         const roomId = parseInt(parsedData.roomId);
         if (isNaN(roomId)) return;
 
+        const room = await db.query.rooms.findFirst({
+          where: eq(rooms.id, roomId),
+        });
+
+        if (!room) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Room does not exist",
+            })
+          );
+          return;
+        }
+
         joinRoom(ws, roomId);
 
-        // send existing snapshot to joiner
         const snapshot = await db.query.canvasSnapshots.findFirst({
           where: eq(canvasSnapshots.roomId, roomId),
         });
@@ -135,7 +140,6 @@ wss.on("connection", (ws, request) => {
           }),
         );
 
-        // tell others someone joined
         broadcast(
           roomId,
           {
@@ -172,7 +176,6 @@ wss.on("connection", (ws, request) => {
         const roomId = parseInt(parsedData.roomId);
         if (isNaN(roomId)) return;
 
-        // broadcast only — no DB write
         broadcast(
           roomId,
           {
@@ -182,7 +185,7 @@ wss.on("connection", (ws, request) => {
             roomId,
           },
           ws,
-        ); // exclude sender
+        );
 
         break;
       }
@@ -208,7 +211,6 @@ wss.on("connection", (ws, request) => {
 
       case "preview": {
         const roomId = parseInt(parsedData.roomId);
-        if (isNaN(roomId)) return;
         if (isNaN(roomId)) return;
         broadcast(
           roomId,
@@ -259,13 +261,10 @@ wss.on("connection", (ws, request) => {
     }
   });
 
-  // DISCONNECT
-
   ws.on("close", () => {
     const user = wsToUser.get(ws);
     if (!user) return;
 
-    // leave all rooms cleanly
     user.rooms.forEach((roomId) => {
       broadcast(roomId, {
         type: "user_left",
@@ -280,8 +279,6 @@ wss.on("connection", (ws, request) => {
     wsToUser.delete(ws);
   });
 });
-
-// ─── AUTO SNAPSHOT every 30s ─────────────────────────
 
 setInterval(() => {
   roomToClients.forEach((clients, roomId) => {

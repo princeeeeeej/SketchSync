@@ -5,6 +5,7 @@ import { CanvasManager } from "../canvas/CanvasManager";
 import { ShapeStyles, Tool } from "../canvas/types";
 
 import { BACKEND_URL } from "@/app/config";
+import { useRouter } from "next/navigation";
 import PropertiesPanel from "./PropertiesPanel";
 import { ToolBar } from "./ToolBaar";
 import { AvatarStack } from "./AvatarStack";
@@ -23,8 +24,10 @@ export default function Canvas({
   userId: string;
   name: string;
 }) {
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const managerRef = useRef<CanvasManager | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<Tool>("pointer");
   const [textInput, setTextInput] = useState<{
     canvasX: number;
@@ -91,10 +94,17 @@ export default function Canvas({
     fetch(`${BACKEND_URL}/canvas/${roomId}`, {
       headers: { authorization: token ?? "" },
     })
-      .then((res) => res.json())
-      .then((data) => manager.loadShapes(data.elements) ?? [])
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Room unavailable");
+          return;
+        }
+        manager.loadShapes(data.elements);
+      })
       .catch((err) => {
-        console.log(err);
+        console.error("Canvas load error:", err);
+        setError("Network error while loading room.");
       });
 
     socket.onmessage = (event) => {
@@ -192,12 +202,32 @@ export default function Canvas({
     setTextInput(null);
   };
 
+  if (error) {
+    return (
+      <div className="w-screen h-screen bg-[#fcfcfb] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-stone-200/90 rounded-3xl p-8 shadow-[0_24px_80px_rgba(15,23,42,0.08)] text-center flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-bold text-xl">
+            !
+          </div>
+          <h2 className="font-serif text-2xl text-stone-900 font-medium">Room Unavailable</h2>
+          <p className="text-sm text-stone-500">{error}</p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-2 w-full py-3 rounded-full bg-stone-900 text-white font-bold text-sm hover:bg-stone-800 transition active:scale-95 cursor-pointer shadow-md"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative w-screen h-screen">
-      <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 bg-[#09090b]/80 backdrop-blur-md border border-white/10 shadow-sm rounded-full z-50">
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-        <span className="text-xs font-medium text-zinc-400">
-          Room <span className="font-mono text-zinc-200 ml-1">{roomId}</span>
+    <div className="relative w-screen h-screen overflow-hidden bg-[#fcfcfb]">
+      <div className="absolute top-6 left-6 flex items-center gap-2.5 px-4 py-2 bg-white/90 backdrop-blur-md border border-stone-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.06)] rounded-full z-50">
+        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+        <span className="text-xs font-semibold text-stone-600">
+          Room <span className="font-mono text-stone-900 font-bold ml-1">{roomId}</span>
         </span>
       </div>
       <AvatarStack 

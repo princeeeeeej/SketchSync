@@ -31,7 +31,7 @@ export interface ShapeStyles {
 }
 
 export const DEFAULT_STYLE: ShapeStyles = {
-  strokeColor: "#ffffff",
+  strokeColor: "#1c1917",
   fillColor: "transparent",
   opacity: 1,
   strokeWidth: 2,

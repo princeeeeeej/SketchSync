@@ -78,17 +78,16 @@ export class CursorManager {
     ctx.save();
     ctx.beginPath();
 
-    ctx.moveTo(x, y); // tip (top-left)
-    ctx.lineTo(x + 10, y + 10); // bottom-right
-    ctx.lineTo(x + 3, y + 8); // inner notch
-    ctx.lineTo(x + 1, y + 14); // tail bottom
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 10, y + 10);
+    ctx.lineTo(x + 3, y + 8);
+    ctx.lineTo(x + 1, y + 14);
     ctx.closePath();
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
     ctx.lineJoin = "round";
     ctx.stroke();
 
-    // color fill
     ctx.fillStyle = color;
     ctx.fill();
 
