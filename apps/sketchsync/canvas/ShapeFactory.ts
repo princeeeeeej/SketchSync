@@ -2,16 +2,16 @@ import { CircleShape } from "./shapes/CircleShape";
 import { LineShape } from "./shapes/LineShape";
 import { PenShape } from "./shapes/PenShape";
 import { RectShape } from "./shapes/RectShape";
-import { Shape } from "./shapes/shape";
+import { Shape } from "./shapes/Shape";
 import { TextShape } from "./shapes/TextShape";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_STYLE, ShapeData, ShapeStyles, Tool } from "./types";
 
-export class ShapeFactory{
-    static create(tool: Tool, x:number, y: number, style: ShapeStyles = DEFAULT_STYLE): Shape{
+export class ShapeFactory {
+    static create(tool: Tool, x: number, y: number, style: ShapeStyles = DEFAULT_STYLE): Shape {
         const id = uuidv4()
 
-        switch(tool){
+        switch (tool) {
             case "rect":
                 return new RectShape(id, style, x, y, 0, 0)
             case "circle":
@@ -21,16 +21,16 @@ export class ShapeFactory{
             case "text":
                 return new TextShape(id, style, x, y, "", style.fontSize ?? 16)
             case "pen":
-                return new PenShape(id, style, [{x, y}])  
+                return new PenShape(id, style, [{ x, y }])
             default:
                 throw new Error(`ShapeFactory.create: unknown tool "${tool}"`);
-            }
+        }
     }
 
-    static deserialize(data: ShapeData): Shape{
+    static deserialize(data: ShapeData): Shape {
         const style = data.style ?? DEFAULT_STYLE;
 
-        switch(data.type){
+        switch (data.type) {
             case "rect":
                 return new RectShape(data.id, style, data.x, data.y, data.width, data.height)
             case "circle":

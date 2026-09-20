@@ -1,13 +1,13 @@
 import { BoundingBox, ResizeHandle, ShapeData, ShapeStyles } from "../types";
-import { Shape } from "./shape";
+import { Shape } from "./Shape";
 
-export class TextShape extends Shape{
+export class TextShape extends Shape {
     text: string
     x: number
     y: number
     fontSize: number
 
-    constructor(id: string, style: ShapeStyles, x: number , y: number, text: string, fontSize: number){
+    constructor(id: string, style: ShapeStyles, x: number, y: number, text: string, fontSize: number) {
         super(id, style)
         this.x = x
         this.y = y
@@ -40,7 +40,7 @@ export class TextShape extends Shape{
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
-        switch(handle){
+        switch (handle) {
             case "ne":
                 this.fontSize = Math.max(8, this.fontSize - dy * 0.5);
                 this.y += dy;
@@ -54,7 +54,7 @@ export class TextShape extends Shape{
         const height = lines.length * this.fontSize * 1.2
         return {
             x: this.x,
-            y: this.y - this.fontSize, 
+            y: this.y - this.fontSize,
             width: approxWidth,
             height
         }
@@ -72,13 +72,13 @@ export class TextShape extends Shape{
         ctx.strokeStyle = "#6965db"
         ctx.lineWidth = 1 / zoom
 
-        const handles = [                 
-            { x: box.x + box.width,       y: box.y },                    
+        const handles = [
+            { x: box.x + box.width, y: box.y },
         ]
 
         handles.forEach(h => {
-            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
-            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+            ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
+            ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
         })
         ctx.restore()
     }

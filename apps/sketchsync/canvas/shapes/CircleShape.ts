@@ -1,12 +1,12 @@
 import { BoundingBox, ResizeHandle, ShapeData, ShapeStyles } from "../types"
-import { Shape } from "./shape"
+import { Shape } from "./Shape"
 
-export class CircleShape extends Shape{
-    radius : number
-    centerX : number
+export class CircleShape extends Shape {
+    radius: number
+    centerX: number
     centerY: number
 
-    constructor(id: string, style: ShapeStyles, centerX: number, centerY: number, radius: number){
+    constructor(id: string, style: ShapeStyles, centerX: number, centerY: number, radius: number) {
         super(id, style)
         this.radius = radius
         this.centerX = centerX
@@ -20,7 +20,7 @@ export class CircleShape extends Shape{
         ctx.arc(this.centerX, this.centerY, Math.abs(this.radius), 0, 2 * Math.PI)
         ctx.stroke();
         if (this.style.fillColor !== "transparent") {
-        ctx.fill();
+            ctx.fill();
         }
         ctx.restore();
     }
@@ -33,27 +33,27 @@ export class CircleShape extends Shape{
 
     translate(dx: number, dy: number): void {
         this.centerX += dx;
-        this.centerY += dy; 
+        this.centerY += dy;
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
         switch (handle) {
             case "e":
-            this.centerX += dx / 2;
-            this.radius = Math.max(1, this.radius + dx / 2);
-            break;
+                this.centerX += dx / 2;
+                this.radius = Math.max(1, this.radius + dx / 2);
+                break;
             case "w":
-            this.centerX += dx / 2;
-            this.radius = Math.max(1, this.radius - dx / 2);
-            break;
+                this.centerX += dx / 2;
+                this.radius = Math.max(1, this.radius - dx / 2);
+                break;
             case "s":
-            this.centerY += dy / 2;
-            this.radius = Math.max(1, this.radius + dy / 2);
-            break;
+                this.centerY += dy / 2;
+                this.radius = Math.max(1, this.radius + dy / 2);
+                break;
             case "n":
-            this.centerY += dy / 2;
-            this.radius = Math.max(1, this.radius - dy / 2);
-            break;
+                this.centerY += dy / 2;
+                this.radius = Math.max(1, this.radius - dy / 2);
+                break;
         }
     }
 
@@ -69,7 +69,7 @@ export class CircleShape extends Shape{
 
     drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox()
-         const size = 8 / zoom
+        const size = 8 / zoom
 
         ctx.save()
         ctx.strokeStyle = "#6965db";
@@ -77,10 +77,10 @@ export class CircleShape extends Shape{
         ctx.setLineDash([])
         ctx.beginPath()
         ctx.strokeRect(
-            box.x ,
-            box.y ,
-            box.width ,
-            box.height 
+            box.x,
+            box.y,
+            box.width,
+            box.height
         )
         ctx.setLineDash([]);
 
@@ -88,16 +88,16 @@ export class CircleShape extends Shape{
         ctx.strokeStyle = "#6965db"
         ctx.lineWidth = 1 / zoom
 
-        const handles = [                    
-            { x: box.x + box.width / 2,   y: box.y },                                     
-            { x: box.x + box.width,       y: box.y + box.height / 2 },  
-            { x: box.x + box.width / 2,   y: box.y + box.height },             
-            { x: box.x,                   y: box.y + box.height / 2 },  
+        const handles = [
+            { x: box.x + box.width / 2, y: box.y },
+            { x: box.x + box.width, y: box.y + box.height / 2 },
+            { x: box.x + box.width / 2, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height / 2 },
         ]
 
         handles.forEach(h => {
-            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
-            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+            ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
+            ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
         })
         ctx.restore()
     }
@@ -105,7 +105,7 @@ export class CircleShape extends Shape{
     serialize(): ShapeData {
         return {
             id: this.id,
-            type:"circle",
+            type: "circle",
             style: this.style,
             centerX: this.centerX,
             centerY: this.centerY,

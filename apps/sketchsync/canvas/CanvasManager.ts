@@ -4,10 +4,11 @@ import { CircleShape } from "./shapes/CircleShape";
 import { LineShape } from "./shapes/LineShape";
 import { PenShape } from "./shapes/PenShape";
 import { RectShape } from "./shapes/RectShape";
-import { Shape } from "./shapes/shape";
+import { Shape } from "./shapes/Shape";
 import { TextShape } from "./shapes/TextShape";
 import {
   DEFAULT_STYLE,
+  HistoryAction,
   Point,
   ResizeHandle,
   ShapeData,
@@ -49,9 +50,10 @@ export class CanvasManager {
   private originalShapeData: ShapeData | null;
 
   private erasedIds: Set<string>;
+  private erasedShapes: ShapeData[];
 
-  private history: ShapeData[][];
-  private historyIndex: number;
+  private undoStack: HistoryAction[];
+  private redoStack: HistoryAction[];
   private isExporting: boolean;
 
   private onShapeChange: (shapes: ShapeData[]) => void;
@@ -106,13 +108,14 @@ export class CanvasManager {
     this.moveStartY = 0;
     this.originalShapeData = null;
     this.erasedIds = new Set();
+    this.erasedShapes = [];
     this.isResizing = false;
     this.activeHandle = null;
     this.resizeStartX = 0;
     this.resizeStartY = 0;
     this.resizeStartData = null;
-    this.history = [];
-    this.historyIndex = -1;
+    this.undoStack = [];
+    this.redoStack = [];
     this.isExporting = false;
     this.onShapeChange = onShapeChange;
     this.onErase = onErase;
@@ -164,6 +167,7 @@ export class CanvasManager {
 
   updateSelectedStyle(style: Partial<ShapeStyles>): void {
     if (!this.selectedShape) return;
+    const beforeData = this.selectedShape.serialize();
     this.selectedShape.style = { ...this.selectedShape.style, ...style };
     if (
       this.selectedShape instanceof TextShape &&
@@ -172,8 +176,31 @@ export class CanvasManager {
       this.selectedShape.fontSize = style.fontSize;
     }
     this.shapes.set(this.selectedShape.id, this.selectedShape);
+    const afterData = this.selectedShape.serialize();
     this.render();
     this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+
+    if (this.undoStack.length > 0) {
+      const lastAction = this.undoStack[this.undoStack.length - 1];
+      if (
+        lastAction.type === "modify" &&
+        lastAction.after.length === 1 &&
+        lastAction.after[0].id === beforeData.id &&
+        JSON.stringify({ ...lastAction.before[0], style: undefined }) ===
+        JSON.stringify({ ...lastAction.after[0], style: undefined })
+      ) {
+        lastAction.after = [afterData];
+        this.redoStack = [];
+        this.onHistoryChange();
+        return;
+      }
+    }
+
+    this.pushAction({
+      type: "modify",
+      before: [beforeData],
+      after: [afterData],
+    });
   }
 
   getActiveHandle(x: number, y: number): ResizeHandle | null {
@@ -205,43 +232,109 @@ export class CanvasManager {
     return [...this.shapes.values()].map((s) => s.serialize());
   }
 
-  private saveHistory(): void {
-    this.history = this.history.slice(0, this.historyIndex + 1);
-    this.history.push([...this.shapes.values()].map((s) => s.serialize()));
-    this.historyIndex++;
+  pushAction(action: HistoryAction): void {
+    this.undoStack.push(action);
+    if (this.undoStack.length > 50) {
+      this.undoStack.shift();
+    }
+    this.redoStack = [];
     this.onHistoryChange();
   }
 
   undo(): void {
-    if (this.historyIndex <= 0) return;
-    this.historyIndex--;
-    this.restoreHistory();
+    const action = this.undoStack.pop();
+    if (!action) return;
+
+    switch (action.type) {
+      case "add": {
+        const ids = action.shapes.map((s) => s.id);
+        ids.forEach((id) => {
+          this.shapes.delete(id);
+          if (this.selectedShape?.id === id) {
+            this.selectedShape = null;
+            this.onSelectionChange(null, null);
+          }
+        });
+        this.onErase(ids);
+        break;
+      }
+      case "delete": {
+        action.shapes.forEach((data) => {
+          const shape = ShapeFactory.deserialize(data);
+          this.shapes.set(shape.id, shape);
+        });
+        this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        break;
+      }
+      case "modify": {
+        action.before.forEach((data) => {
+          const shape = ShapeFactory.deserialize(data);
+          this.shapes.set(shape.id, shape);
+          if (this.selectedShape?.id === shape.id) {
+            this.selectedShape = shape;
+            this.onSelectionChange({ ...shape.style }, shape.serialize().type);
+          }
+        });
+        this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        break;
+      }
+    }
+
+    this.redoStack.push(action);
+    this.render();
+    this.onHistoryChange();
   }
 
   redo(): void {
-    if (this.historyIndex >= this.history.length - 1) return;
-    this.historyIndex++;
-    this.restoreHistory();
-  }
+    const action = this.redoStack.pop();
+    if (!action) return;
 
-  private restoreHistory(): void {
-    const snapshot = this.history[this.historyIndex];
-    this.shapes.clear();
-    snapshot.forEach((data) => {
-      const shape = ShapeFactory.deserialize(data);
-      this.shapes.set(shape.id, shape);
-    });
+    switch (action.type) {
+      case "add": {
+        action.shapes.forEach((data) => {
+          const shape = ShapeFactory.deserialize(data);
+          this.shapes.set(shape.id, shape);
+        });
+        this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        break;
+      }
+      case "delete": {
+        const ids = action.shapes.map((s) => s.id);
+        ids.forEach((id) => {
+          this.shapes.delete(id);
+          if (this.selectedShape?.id === id) {
+            this.selectedShape = null;
+            this.onSelectionChange(null, null);
+          }
+        });
+        this.onErase(ids);
+        break;
+      }
+      case "modify": {
+        action.after.forEach((data) => {
+          const shape = ShapeFactory.deserialize(data);
+          this.shapes.set(shape.id, shape);
+          if (this.selectedShape?.id === shape.id) {
+            this.selectedShape = shape;
+            this.onSelectionChange({ ...shape.style }, shape.serialize().type);
+          }
+        });
+        this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        break;
+      }
+    }
+
+    this.undoStack.push(action);
     this.render();
+    this.onHistoryChange();
   }
 
   canUndo(): boolean {
-    if (this.historyIndex <= 0) return false;
-    return true;
+    return this.undoStack.length > 0;
   }
 
   canRedo(): boolean {
-    if (this.historyIndex >= this.history.length - 1) return false;
-    return true;
+    return this.redoStack.length > 0;
   }
 
   updateCursor(userId: string, x: number, y: number, name: string): void {
@@ -292,9 +385,17 @@ export class CanvasManager {
   }
 
   clearCanvas(): void {
+    const allShapes = [...this.shapes.values()].map((s) => s.serialize());
+    if (allShapes.length === 0) return;
+    const ids = allShapes.map((s) => s.id);
     this.shapes.clear();
-    this.onShapeChange([]);
-    this.saveHistory();
+    this.selectedShape = null;
+    this.onSelectionChange(null, null);
+    this.onErase(ids);
+    this.pushAction({
+      type: "delete",
+      shapes: allShapes,
+    });
     this.render();
   }
 
@@ -437,6 +538,7 @@ export class CanvasManager {
       case "eraser":
         this.isDrawing = true;
         this.erasedIds = new Set();
+        this.erasedShapes = [];
         break;
       case "pen":
         this.isDrawing = true;
@@ -512,9 +614,14 @@ export class CanvasManager {
         break;
       case "eraser":
         const shape = this.getShape(x, y);
-        if (shape && !this.erasedIds.has(shape!.id)) {
+        if (shape && !this.erasedIds.has(shape.id)) {
+          this.erasedShapes.push(shape.serialize());
           this.shapes.delete(shape.id);
           this.erasedIds.add(shape.id);
+          if (this.selectedShape?.id === shape.id) {
+            this.selectedShape = null;
+            this.onSelectionChange(null, null);
+          }
           this.render();
         }
         break;
@@ -553,37 +660,71 @@ export class CanvasManager {
         if (this.isResizing) {
           this.isResizing = false;
           this.activeHandle = null;
+          if (this.selectedShape && this.resizeStartData) {
+            const currentData = this.selectedShape.serialize();
+            if (
+              JSON.stringify(this.resizeStartData) !==
+              JSON.stringify(currentData)
+            ) {
+              this.pushAction({
+                type: "modify",
+                before: [this.resizeStartData],
+                after: [currentData],
+              });
+              this.onShapeChange(
+                [...this.shapes.values()].map((s) => s.serialize()),
+              );
+            }
+          }
           this.resizeStartData = null;
-          this.onShapeChange(
-            [...this.shapes.values()].map((s) => s.serialize()),
-          );
-          this.saveHistory();
+          this.isDrawing = false;
           break;
         }
         this.isDrawing = false;
-        this.originalShapeData = null;
-        if (this.selectedShape) {
-          this.onShapeChange(
-            [...this.shapes.values()].map((s) => s.serialize()),
-          );
+        if (this.selectedShape && this.originalShapeData) {
+          const currentData = this.selectedShape.serialize();
+          if (
+            JSON.stringify(this.originalShapeData) !==
+            JSON.stringify(currentData)
+          ) {
+            this.pushAction({
+              type: "modify",
+              before: [this.originalShapeData],
+              after: [currentData],
+            });
+            this.onShapeChange(
+              [...this.shapes.values()].map((s) => s.serialize()),
+            );
+          }
         }
+        this.originalShapeData = null;
         break;
       case "pen":
         if (!this.currentShape) break;
         const pen = this.currentShape as PenShape;
         pen.points.push({ x, y });
         this.shapes.set(this.currentShape.id, this.currentShape);
+        const serializedPen = this.currentShape.serialize();
         this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        this.pushAction({
+          type: "add",
+          shapes: [serializedPen],
+        });
         this.currentShape = null;
         this.currentStroke = [];
         this.isDrawing = false;
+        this.render();
         break;
       case "eraser":
         this.isDrawing = false;
         if (this.erasedIds.size > 0) {
           this.onErase([...this.erasedIds]);
+          this.pushAction({
+            type: "delete",
+            shapes: [...this.erasedShapes],
+          });
           this.erasedIds = new Set();
-          this.saveHistory();
+          this.erasedShapes = [];
         }
         break;
       case "text":
@@ -593,25 +734,45 @@ export class CanvasManager {
         if (!this.currentShape) break;
         const width = x - this.startX;
         const height = y - this.startY;
-        if (this.activeTool === "rect") {
-          const rect = this.currentShape as RectShape;
-          rect.width = width;
-          rect.height = height;
-        } else if (this.activeTool === "circle") {
-          const circle = this.currentShape as CircleShape;
-          circle.radius = Math.sqrt(width * width + height * height) / 2;
-          circle.centerX = this.startX + width / 2;
-          circle.centerY = this.startY + height / 2;
-        } else if (this.activeTool === "line") {
+
+        if (this.activeTool === "line") {
           const line = this.currentShape as LineShape;
+          const dist = Math.hypot(x - this.startX, y - this.startY);
+          if (dist < 3) {
+            this.currentShape = null;
+            this.isDrawing = false;
+            this.render();
+            break;
+          }
           line.x2 = x;
           line.y2 = y;
+        } else {
+          if (Math.abs(width) < 3 && Math.abs(height) < 3) {
+            this.currentShape = null;
+            this.isDrawing = false;
+            this.render();
+            break;
+          }
+          if (this.activeTool === "rect") {
+            const rect = this.currentShape as RectShape;
+            rect.width = width;
+            rect.height = height;
+          } else if (this.activeTool === "circle") {
+            const circle = this.currentShape as CircleShape;
+            circle.radius = Math.sqrt(width * width + height * height) / 2;
+            circle.centerX = this.startX + width / 2;
+            circle.centerY = this.startY + height / 2;
+          }
         }
         this.shapes.set(this.currentShape.id, this.currentShape);
+        const serializedShape = this.currentShape.serialize();
         this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+        this.pushAction({
+          type: "add",
+          shapes: [serializedShape],
+        });
         this.currentShape = null;
         this.isDrawing = false;
-        this.saveHistory();
         this.render();
         break;
     }
@@ -639,6 +800,9 @@ export class CanvasManager {
       const shape = ShapeFactory.deserialize(data);
       this.shapes.set(shape.id, shape);
     });
+    this.undoStack = [];
+    this.redoStack = [];
+    this.onHistoryChange();
     this.render();
   }
 
@@ -659,7 +823,7 @@ export class CanvasManager {
     const link = document.createElement("a");
     link.download = `SketchSync-${roomName}-${Date.now()}.png`;
     link.href = dataUrl;
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -676,7 +840,12 @@ export class CanvasManager {
     shape.text = text;
     shape.fontSize = this.currentStyle.fontSize ?? 16;
     this.shapes.set(shape.id, shape);
+    const serialized = shape.serialize();
     this.onShapeChange([...this.shapes.values()].map((s) => s.serialize()));
+    this.pushAction({
+      type: "add",
+      shapes: [serialized],
+    });
     this.render();
   }
 }

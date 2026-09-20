@@ -18,32 +18,49 @@ import {
 interface ToolButtonProps {
   icon: React.ReactNode;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   label: string;
 }
 
-const ToolButton = ({ icon, active, onClick, label }: ToolButtonProps) => (
+const ToolButton = ({ icon, active, disabled, onClick, label }: ToolButtonProps) => (
   <button
-    onClick={onClick}
+    onClick={disabled ? undefined : onClick}
+    disabled={disabled}
     title={label}
-    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer
-      ${active 
-        ? "bg-stone-900 text-white shadow-sm scale-105"
-        : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-150
+      ${disabled 
+        ? "text-stone-300 cursor-not-allowed opacity-40"
+        : active 
+          ? "bg-stone-900 text-white shadow-sm scale-105 cursor-pointer"
+          : "text-stone-500 hover:bg-stone-100 hover:text-stone-900 cursor-pointer"
       }`}
   >
     {cloneElement(icon as React.ReactElement<{ size?: number; strokeWidth?: number }>, { size: 16, strokeWidth: 1.75 })}
   </button>
 );
 
+interface ToolBarProps {
+  selectedTool: string;
+  setSelectedTool: (tool: any) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onClear: () => void;
+  onDownload: () => void;
+}
+
 export const ToolBar = ({ 
   selectedTool, 
   setSelectedTool,
+  canUndo = false,
+  canRedo = false,
   onUndo,
   onRedo,
   onClear,
   onDownload
-}: any) => {
+}: ToolBarProps) => {
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
       <div className="flex items-center p-1.5 bg-white/90 backdrop-blur-xl border border-stone-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.08)] rounded-full">
@@ -61,8 +78,8 @@ export const ToolBar = ({
         <ToolButton label="Draw" icon={<Pencil />} active={selectedTool === "pen"} onClick={() => setSelectedTool("pen")} />
         <ToolButton label="Text" icon={<Type />} active={selectedTool === "text"} onClick={() => setSelectedTool("text")} />
         <div className="w-[1px] h-4 bg-stone-200 mx-1.5" />
-        <ToolButton label="Undo" icon={<Undo2 />} onClick={onUndo} />
-        <ToolButton label="Redo" icon={<Redo2 />} onClick={onRedo} />
+        <ToolButton label="Undo" icon={<Undo2 />} onClick={onUndo} disabled={!canUndo} />
+        <ToolButton label="Redo" icon={<Redo2 />} onClick={onRedo} disabled={!canRedo} />
         <ToolButton 
           label="Clear" 
           icon={<Trash2 className="hover:text-rose-500 transition-colors" />} 

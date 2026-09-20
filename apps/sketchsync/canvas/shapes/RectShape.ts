@@ -1,13 +1,13 @@
 import { BoundingBox, ResizeHandle, ShapeData, ShapeStyles } from "../types";
-import { Shape } from "./shape";
+import { Shape } from "./Shape";
 
-export class RectShape extends Shape{
+export class RectShape extends Shape {
     x: number
     y: number
     height: number
     width: number
 
-    constructor(id: string, style: ShapeStyles, x: number, y: number, width: number, height: number){
+    constructor(id: string, style: ShapeStyles, x: number, y: number, width: number, height: number) {
         super(id, style)
         this.x = x
         this.y = y
@@ -20,7 +20,7 @@ export class RectShape extends Shape{
         this.apply(ctx)
         ctx.beginPath()
         ctx.rect(this.x, this.y, this.width, this.height)
-        if(this.style.fillColor !== "transparent"){
+        if (this.style.fillColor !== "transparent") {
             ctx.fill();
         }
         ctx.stroke()
@@ -28,11 +28,11 @@ export class RectShape extends Shape{
     }
 
     hitTest(x: number, y: number): boolean {
-        const minX = Math.min(this.x , this.x + this.width)
-        const maxX = Math.max(this.x , this.x + this.width)
-        const minY = Math.min(this.y , this.y + this.height)
-        const maxY = Math.max(this.y , this.y+ this.height)     
-        
+        const minX = Math.min(this.x, this.x + this.width)
+        const maxX = Math.max(this.x, this.x + this.width)
+        const minY = Math.min(this.y, this.y + this.height)
+        const maxY = Math.max(this.y, this.y + this.height)
+
         return x >= minX && x <= maxX && y >= minY && y <= maxY
     }
 
@@ -42,32 +42,32 @@ export class RectShape extends Shape{
     }
 
     resize(handle: ResizeHandle, dx: number, dy: number): void {
-        switch(handle){
-            case "se": 
+        switch (handle) {
+            case "se":
                 this.width += dx;
                 this.height += dy;
                 break
-            case "sw": 
+            case "sw":
                 this.x += dx;
                 this.width -= dx
                 this.height += dy
                 break
             case "ne":
-                this.y += dy 
+                this.y += dy
                 this.width += dx
                 this.height -= dy
                 break
-            case "nw": 
+            case "nw":
                 this.x += dx
                 this.y += dy
                 this.width -= dx
                 this.height -= dy
                 break
-            case "n": 
+            case "n":
                 this.y += dy
                 this.height -= dy
                 break
-            case "s": 
+            case "s":
                 this.height += dy
                 break
             case "e":
@@ -99,9 +99,9 @@ export class RectShape extends Shape{
         ctx.lineWidth = 1 / zoom
         ctx.setLineDash([])
         ctx.strokeRect(
-            box.x ,
+            box.x,
             box.y,
-            box.width ,
+            box.width,
             box.height
         )
         ctx.setLineDash([]);
@@ -111,19 +111,19 @@ export class RectShape extends Shape{
         ctx.lineWidth = 1 / zoom
 
         const handles = [
-            { x: box.x,                   y: box.y },                    
-            { x: box.x + box.width / 2,   y: box.y },                   
-            { x: box.x + box.width,       y: box.y },                    
-            { x: box.x + box.width,       y: box.y + box.height / 2 },  
-            { x: box.x + box.width,       y: box.y + box.height },       
-            { x: box.x + box.width / 2,   y: box.y + box.height },      
-            { x: box.x,                   y: box.y + box.height },       
-            { x: box.x,                   y: box.y + box.height / 2 },  
+            { x: box.x, y: box.y },
+            { x: box.x + box.width / 2, y: box.y },
+            { x: box.x + box.width, y: box.y },
+            { x: box.x + box.width, y: box.y + box.height / 2 },
+            { x: box.x + box.width, y: box.y + box.height },
+            { x: box.x + box.width / 2, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height / 2 },
         ]
 
         handles.forEach(h => {
-            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
-            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+            ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
+            ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
         })
         ctx.restore()
     }

@@ -141,3 +141,9 @@ export type ResizeHandle =
     styles: ShapeStyles,
     onChange: (style : ShapeStyles) => void
   }
+
+export type HistoryAction =
+  | { type: "add"; shapes: ShapeData[] }
+  | { type: "delete"; shapes: ShapeData[] }
+  | { type: "modify"; before: ShapeData[]; after: ShapeData[] };
+

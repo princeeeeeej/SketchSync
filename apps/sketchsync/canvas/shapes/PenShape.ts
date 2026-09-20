@@ -1,10 +1,10 @@
 import { BoundingBox, Point, ResizeHandle, ShapeData, ShapeStyles } from "../types";
-import { Shape } from "./shape";
+import { Shape } from "./Shape";
 
-export class PenShape extends Shape{
+export class PenShape extends Shape {
     points: Point[]
 
-    constructor(id: string, style: ShapeStyles, points: Point[]){
+    constructor(id: string, style: ShapeStyles, points: Point[]) {
         super(id, style)
         this.points = points
     }
@@ -24,7 +24,7 @@ export class PenShape extends Shape{
     }
 
     translate(dx: number, dy: number): void {
-        this.points = this.points.map((p) =>({
+        this.points = this.points.map((p) => ({
             x: p.x + dx,
             y: p.y + dy
         }))
@@ -33,7 +33,7 @@ export class PenShape extends Shape{
     resize(handle: ResizeHandle, dx: number, dy: number): void {
         const box = this.getBoundingBox()
 
-        let {x, y, height, width } = box
+        let { x, y, height, width } = box
 
         if (handle.includes("e")) width += dx
         if (handle.includes("s")) height += dy
@@ -71,19 +71,19 @@ export class PenShape extends Shape{
         ctx.lineWidth = 1 / zoom
 
         const handles = [
-            { x: box.x,                   y: box.y },                    
-            { x: box.x + box.width / 2,   y: box.y },                   
-            { x: box.x + box.width,       y: box.y },                    
-            { x: box.x + box.width,       y: box.y + box.height / 2 },  
-            { x: box.x + box.width,       y: box.y + box.height },       
-            { x: box.x + box.width / 2,   y: box.y + box.height },      
-            { x: box.x,                   y: box.y + box.height },       
-            { x: box.x,                   y: box.y + box.height / 2 },  
+            { x: box.x, y: box.y },
+            { x: box.x + box.width / 2, y: box.y },
+            { x: box.x + box.width, y: box.y },
+            { x: box.x + box.width, y: box.y + box.height / 2 },
+            { x: box.x + box.width, y: box.y + box.height },
+            { x: box.x + box.width / 2, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height },
+            { x: box.x, y: box.y + box.height / 2 },
         ]
 
         handles.forEach(h => {
-            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
-            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+            ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
+            ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
         })
         ctx.restore()
     }

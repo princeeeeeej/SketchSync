@@ -47,6 +47,11 @@ export default function Canvas({
     Record<string, { id: string; name: string }>
   >({});
 
+  const syncHistoryState = useCallback(() => {
+    setCanUndo(managerRef.current?.canUndo() ?? false);
+    setCanRedo(managerRef.current?.canRedo() ?? false);
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -89,6 +94,7 @@ export default function Canvas({
     );
 
     managerRef.current = manager;
+    syncHistoryState();
 
     const token = localStorage.getItem("token");
     fetch(`${BACKEND_URL}/canvas/${roomId}`, {
@@ -168,9 +174,42 @@ export default function Canvas({
       managerRef.current?.zoomAt(e.offsetX, e.offsetY, factor);
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const isMac =
+        typeof navigator !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modifier && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          managerRef.current?.redo();
+        } else {
+          managerRef.current?.undo();
+        }
+      } else if (modifier && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        managerRef.current?.redo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
 
-    return () => canvas.removeEventListener("wheel", handleWheel);
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const handleToolChange = (tool: Tool) => {
@@ -183,11 +222,6 @@ export default function Canvas({
     const fresh = managerRef.current?.getSelectedShapeStyles();
     setSelectedShapeStyles(fresh ? { ...fresh } : null);
   };
-
-  const syncHistoryState = useCallback(() => {
-    setCanUndo(managerRef.current?.canUndo() ?? false);
-    setCanRedo(managerRef.current?.canRedo() ?? false);
-  }, []);
 
   const commitText = () => {
     if (!textInput || !textInput.value.trim()) {
@@ -351,6 +385,8 @@ export default function Canvas({
       <ToolBar
         selectedTool={active}
         setSelectedTool={handleToolChange}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onUndo={() => {
           managerRef.current?.undo();
           syncHistoryState();

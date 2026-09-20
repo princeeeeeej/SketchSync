@@ -1,13 +1,13 @@
 import { BoundingBox, ResizeHandle, ShapeData, ShapeStyles } from "../types"
-import { Shape } from "./shape"
+import { Shape } from "./Shape"
 
-export class LineShape extends Shape{
+export class LineShape extends Shape {
     x1: number
     y1: number
     x2: number
     y2: number
 
-    constructor(id: string, style: ShapeStyles, x1: number, y1: number, x2: number, y2: number){
+    constructor(id: string, style: ShapeStyles, x1: number, y1: number, x2: number, y2: number) {
         super(id, style)
         this.x1 = x1
         this.y1 = y1
@@ -46,7 +46,7 @@ export class LineShape extends Shape{
         if (handle === "w") {
             this.x1 += dx;
             this.y1 += dy;
-        } 
+        }
         else if (handle === "e") {
             this.x2 += dx;
             this.y2 += dy;
@@ -64,7 +64,7 @@ export class LineShape extends Shape{
 
     drawSelection(ctx: CanvasRenderingContext2D, zoom: number): void {
         const box = this.getBoundingBox();
-         const size = 8 / zoom
+        const size = 8 / zoom
 
         ctx.save();
         ctx.strokeStyle = "#6965db";
@@ -74,7 +74,7 @@ export class LineShape extends Shape{
             box.x,
             box.y,
             box.width,
-            box.height 
+            box.height
         );
 
         ctx.fillStyle = "#ffffff"
@@ -82,15 +82,15 @@ export class LineShape extends Shape{
         ctx.lineWidth = 1 / zoom
 
         const handles = [
-            { x: box.x ,                   y: box.y + box.height/2 },                                       
-            { x: box.x + box.width,       y: box.y + box.height/2 },        
+            { x: box.x, y: box.y + box.height / 2 },
+            { x: box.x + box.width, y: box.y + box.height / 2 },
         ]
 
         handles.forEach(h => {
-            ctx.fillRect(h.x - size/2, h.y - size/2, size, size)   
-            ctx.strokeRect(h.x - size/2, h.y - size/2, size, size)
+            ctx.fillRect(h.x - size / 2, h.y - size / 2, size, size)
+            ctx.strokeRect(h.x - size / 2, h.y - size / 2, size, size)
         })
-        
+
         ctx.restore();
     }
 
@@ -104,5 +104,5 @@ export class LineShape extends Shape{
             x2: this.x2,
             y2: this.y2,
         };
-  }
+    }
 }
